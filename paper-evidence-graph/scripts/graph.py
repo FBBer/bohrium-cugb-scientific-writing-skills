@@ -32,8 +32,9 @@ def dataset(index,plan,previous=None):
         if sid in nodes:
             old=nodes[sid];old["aliases"]=sorted(set(old.get("aliases",[])+n.get("aliases",[])+[n["label"]])-{old["label"]})
             old["evidence"]=unique(old["evidence"]+ev)
+            old["members"]=unique(old.get("members",[])+[{"key":local,"document":n.get("document",source_files[ev[0]["id"]])}])
             if n.get("merge_reason"): old["alignments"]=list(dict.fromkeys(old.get("alignments",[])+[n["merge_reason"]]))
-        else: nodes[sid]={**n,"id":sid}
+        else: nodes[sid]={**n,"id":sid,"members":[{"key":local,"document":n.get("document",source_files[ev[0]["id"]])}]}
     for e in plan.get("edges",[]):
         a=refs.get(e.get("source"),e.get("source"));b=refs.get(e.get("target"),e.get("target"))
         ev=e.get("evidence",[]);err=check_evidence(ev,index["sources"])
@@ -80,6 +81,8 @@ def export(index,plan,out,previous=None):
             ET.SubElement(entry,el("data"),{"key":"label"}).text=item.get("label",item.get("predicate"))
             ET.SubElement(entry,el("data"),{"key":"details"}).text=json.dumps(item,ensure_ascii=False,sort_keys=True)
     atomic_text(out/"graph.graphml",ET.tostring(root,encoding="unicode")+"\n")
+    from diagram import render
+    write(out/"figures.json",render(graph,answers,out/"figures"))
     return graph,answers
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("index");p.add_argument("plan");p.add_argument("out",type=Path);p.add_argument("--previous")

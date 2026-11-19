@@ -31,6 +31,8 @@ sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON
 python3 "$S/scripts/graph.py" /app/work/sources.json /app/work/graph-plan.json /app/output
 ```
 
+每个有依据的查询同时生成可编辑 SVG。节点标签来自源数据，箭头从主体指向客体，关系名称在箭头上，适用条件在箭头下。可用 PyMuPDF 时一并导出印刷版 PDF 和 PNG 预览。原始关系保存在 graph.json，绘图代码位于 scripts/diagram.py。中文稿在图中沿用中文实体和关系标签，分组标题直接写该组回答的问题。
+
 ## 交付与复核
 
 打开 graph.graphml、graph.json、queries.json，检查每条边有两端，每个回答的证据能回指正文。数字相同或名称相似不构成合并依据。空查询标记材料缺乏支持，追加实际问题的人类可读答案以及出现冲突时的并列解释。
