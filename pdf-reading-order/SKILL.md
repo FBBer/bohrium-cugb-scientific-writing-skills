@@ -41,6 +41,14 @@ python3 "$S/scripts/parse_pdf.py" "/input/实际文件.pdf" "/app/work/layout.js
 python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
 ```
 
+## 阅读版式
+
+表头在网格外时，external_header 保存原有列名、单位与页框。表格的一个网格行如果包含多个项目，aligned_measurements 记录和项目行名在同一基线的数列，并保留页内坐标。该结果只在至少两列均能逐行对齐时生成。原网格仍见 rows。PDF 明确标出的数字上标以 10¹⁹ 这类形式呈现，formatted_cells 同时给出原始平面文本与读法。
+
+按物理页呈现阅读顺序和多层表头。表头写量和单位，数值按列右对齐；合并单元格、零和原材料中的缺测标记照录。白底黑字，以留白区分内容。来源、单位和影响理解的限定信息使用可读字号。过程记录另存。
+
+需要阅读页时，运行 `python3 "$S/scripts/view.py" 主成果路径 阅读页.html`，将“主成果路径”替换为实际生成的 `layout.json` 路径。离线页面可在浏览器打开。正式交付仍使用题目指定的文件、字段和模板。
+
 ## 独立运行环境
 
 独立环境可安装 Python 包 PyMuPDF（本地实测 2.1），或系统 Poppler 的 pdftotext/pdftoppm；OCR 实测 Tesseract 5.5.2，需要对应的语言数据。用 python3 -m pip install PyMuPDF 安装到运行脚本的同一个解释器，然后先执行 python3 -c "import pymupdf"。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。

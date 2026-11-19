@@ -30,3 +30,6 @@ revised,report=reconcile(refs,raw)
 assert revised=="First [1]. Independently [2]. Equation $x[3]$." and len(report["merge_decisions"])==1
 atomic_text(result/"manuscript.md",revised);write(result/"citation-audit.json",report);write(result/"cited.csl.json",[r["record"] for r in report["cited"]])
 done({"text":revised,"cited":report["cited"]},[evidence(idx,raw)],["Synthetic records are not externally verified."])
+
+from subprocess import run as run_view
+run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "citation-audit.json"), str(result / "reading.html")], check=True)

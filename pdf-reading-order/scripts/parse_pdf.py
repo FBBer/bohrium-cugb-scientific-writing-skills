@@ -92,6 +92,82 @@ def ocr(path,page_num,work,width,height,doc,language,region=None):
     return results
 
 
+SUPERSCRIPT_DIGITS = str.maketrans("0123456789+-−", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻")
+
+def readable_exponents(spans):
+    """Use the PDF's own raised-digit flag and baseline; leave ambiguous typography intact."""
+    normal = [s for s in spans if s["text"].strip() and not s["flags"] & 1]
+    if not normal:
+        return "".join(s["text"] for s in spans)
+    largest = max(s["size"] for s in normal)
+    baseline = statistics.median(s["baseline"] for s in normal if s["size"] >= largest*.9)
+    fragments = []
+    for s in spans:
+        text = s["text"]
+        if (s["flags"] & 1 and s["size"] < largest*.9 and baseline-s["baseline"] > largest*.15
+                and re.fullmatch(r"\s*[+\-−]?\d+\s*", text)):
+            text = text.translate(SUPERSCRIPT_DIGITS)
+        fragments.append(text)
+    return "".join(fragments)
+
+NUMBER_IN_CELL = re.compile(r"[+\-−]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-]?\d+)?%?")
+
+def lines_in_cell(lines, cell):
+    if not cell:
+        return []
+    left, top, right, bottom = cell
+    result = []
+    for line in lines:
+        x0, y0, x1, y1 = line["bbox"]
+        if left <= (x0+x1)/2 < right and top <= (y0+y1)/2 < bottom:
+            result.append(line)
+    return sorted(result, key=lambda line: (line["bbox"][1], line["bbox"][0]))
+
+def aligned_measurements(values, cells, lines, header_bounds, external_header):
+    """Recover aligned measurements inside one ruled band; retain the source grid separately."""
+    names = (values[0] or "").splitlines() if values else []
+    if len(names) < 2 or not all(any(c.isalpha() for c in name) for name in names):
+        return None
+    candidates = []
+    for col, value in enumerate(values[1:], 1):
+        tokens = (value or "").splitlines()
+        if len(tokens) == len(names) and all(NUMBER_IN_CELL.fullmatch(s.strip()) for s in tokens):
+            candidates.append((col, tokens))
+    if len(candidates) < 2:
+        return None
+    labels = lines_in_cell(lines, cells[0])
+    if [r["text"].strip() for r in labels] != names:
+        return None
+    baseline = lambda r: r["spans"][0]["baseline"]
+    tolerance = max(1.0, min(r["bbox"][3] - r["bbox"][1] for r in labels) * 0.2)
+    if any(baseline(b) - baseline(a) <= 2*tolerance for a,b in zip(labels,labels[1:])):
+        return None
+    columns, numeric_lines = [], []
+    for col, tokens in candidates:
+        column_lines = lines_in_cell(lines, cells[col])
+        if [r["text"].strip() for r in column_lines] != tokens:
+            continue
+        if any(abs(baseline(a)-baseline(b)) > tolerance for a,b in zip(labels,column_lines)):
+            continue
+        cell = cells[col]
+        if external_header:
+            heading = external_header["names"][col] if col < len(external_header["names"]) else None
+        else:
+            header = lines_in_cell(lines,(cell[0],header_bounds[1],cell[2],header_bounds[3]))
+            heading = header[-1]["text"].strip() if header else None
+        columns.append({"column":col+1,"heading":heading})
+        numeric_lines.append(column_lines)
+    if len(columns) < 2:
+        return None
+    records = []
+    for index, name in enumerate(names):
+        members = [column[index] for column in numeric_lines]
+        boxes = [r["bbox"] for r in [labels[index], *members]]
+        box = [min(b[0] for b in boxes),min(b[1] for b in boxes),max(b[2] for b in boxes),max(b[3] for b in boxes)]
+        records.append({"label":name,"values":[r["text"].strip() for r in members],"bbox":box})
+    return {"columns":columns,"records":records}
+
+
 def mupdf_pages(doc):
     for page in doc:
         lines, images = [], []
@@ -101,14 +177,19 @@ def mupdf_pages(doc):
                 spans=[{"text":s["text"],"size":round(s["size"],2),"flags":s["flags"],"bbox":s["bbox"],"baseline":s["origin"][1]} for s in line["spans"]]
                 value="".join(s["text"] for s in spans)
                 if value.strip():
-                    lines.append(make_line(value,line["bbox"],method="text",spans=spans))
+                    row=make_line(value,line["bbox"],method="text",spans=spans)
+                    display=readable_exponents(spans)
+                    if display!=value:
+                        row["display_text"]=display
+                    lines.append(row)
         if hasattr(page,"get_image_info"):
             images=[list(i["bbox"]) for i in page.get_image_info()]
+        raised_lines=[line for line in lines if "display_text" in line]
         tables=[]
         if hasattr(page,"find_tables"):
             try:
                 for t in page.find_tables().tables:
-                    library_rows=t.extract();geometry=[];changes=[]
+                    library_rows=t.extract();geometry=[];changes=[];formatted=[]
                     for ri,row in enumerate(t.rows):
                         values=[]
                         for ci,cell in enumerate(row.cells):
@@ -116,12 +197,41 @@ def mupdf_pages(doc):
                             if cell is None:
                                 values.append(None);continue
                             crop=page.get_textbox(cell).strip()
-                            values.append(crop if crop else raw)
+                            value=crop if crop else raw
+                            if value and raised_lines and lines_in_cell(raised_lines,cell):
+                                replacements=defaultdict(set)
+                                for part in lines_in_cell(lines,cell):
+                                    replacements[part["text"].strip()].add(part.get("display_text",part["text"]).strip())
+                                transformed=[]
+                                for token in value.splitlines():
+                                    variants=replacements.get(token.strip(),set())
+                                    transformed.append(next(iter(variants)) if len(variants)==1 else token)
+                                display="\n".join(transformed)
+                                if display!=value:
+                                    formatted.append({"row":ri+1,"column":ci+1,"raw":value,"display":display})
+                                    value=display
+                            values.append(value)
                             if crop and raw is not None and crop!=raw:
                                 changes.append({"row":ri+1,"column":ci+1,"raw":raw,"box_text":crop,"bbox":list(cell)})
                         geometry.append(values)
-                    tables.append({"bbox":list(t.bbox),"rows":geometry,"row_cells":[[list(c) if c else None for c in row.cells] for row in t.rows],
-                                   "cells":[list(c) if c else None for c in t.cells],"alternate_extractions":changes})
+                    content={"bbox":list(t.bbox),"rows":geometry,"row_cells":[[list(c) if c else None for c in row.cells] for row in t.rows],
+                             "cells":[list(c) if c else None for c in t.cells],"alternate_extractions":changes}
+                    if formatted:
+                        content["formatted_cells"]=formatted
+                    header=getattr(t,"header",None)
+                    if header is not None and header.external:
+                        content["external_header"]={"names":list(header.names),"bbox":list(header.bbox),
+                                                    "cells":[list(cell) if cell else None for cell in header.cells]}
+                    aligned=[]
+                    for row_number,(values,cells) in enumerate(zip(geometry,content["row_cells"]),1):
+                        if row_number==1 and not content.get("external_header"):
+                            continue
+                        band=aligned_measurements(values,cells,lines,t.rows[0].bbox,content.get("external_header"))
+                        if band:
+                            aligned.append({"grid_row":row_number,**band})
+                    if aligned:
+                        content["aligned_measurements"]=aligned
+                    tables.append(content)
             except (ValueError,RuntimeError,AttributeError) as exc:
                 tables.append({"unresolved":str(exc)})
         yield page.rect.width,page.rect.height,lines,images,tables
@@ -261,7 +371,7 @@ def run(path,dest,language):
                 a["id"]=f'p{p["page"]}:l{i}'
                 if a.get("needs_review"):
                     result["issues"].append({"anchor":a["id"],"reason":"low-confidence OCR; check page crop"})
-                text.append("["+a["id"]+"] "+a["text"])
+                text.append("["+a["id"]+"] "+a.get("display_text",a["text"]))
         bookmarks=[{"level":row[0],"text":row[1],"page":row[2]} for row in doc.get_toc() if row[2]>0] if doc else []
         result["structure"]=structure(result["pages"],bookmarks)
         if result["issues"]: result["status"]="partial"

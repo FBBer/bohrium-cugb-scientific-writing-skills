@@ -10,14 +10,14 @@ FONT="Noto Sans CJK SC,Source Han Sans SC,PingFang SC,Microsoft YaHei,Arial,sans
 INK="#000000"
 ZH_QUALIFIERS={"negative":"否定", "uncertain":"不确定", "inference":"推断", "quoted":"转引"}
 COLORS={
-    "method":"#86c4b8", "task":"#92b8e2", "metric":"#edb576",
-    "data":"#a9c88b", "finding":"#c5a9d8", "author":"#e3a49a",
+    "method":"#297b71", "task":"#536bac", "metric":"#ab601f",
+    "data":"#678243", "finding":"#825a89", "author":"#ae5a4b",
 }
 
 def element(parent,tag,attrs):
     return ET.SubElement(parent,"{"+NS+"}"+tag,{k:str(v) for k,v in attrs.items()})
 def width(s):
-    return sum(2 if unicodedata.east_asian_width(c) in {"F","W"} else 1 for c in s)
+    return sum(2 if unicodedata.east_asian_width(c) in {"F","W"} or c in "MW@%" else 1 for c in s)
 def wrap(s,n):
     text=str(s).replace("_"," ");lines=[]
     while width(text)>n:
@@ -73,36 +73,38 @@ def render(graph,answers,out):
     for qid,question,rows in groups:
         labels=ZH_QUALIFIERS if has_chinese(question) else {}
         for offset in range(0,len(rows),6):
-            page=rows[offset:offset+6];title=wrap(question,76)
-            y=28+len(title)*24;layouts=[]
+            page=rows[offset:offset+6];title=wrap(question,54)
+            y=24+len(title)*29;layouts=[]
             for e in page:
                 source,target=nodes[e["source"]],nodes[e["target"]]
-                a=wrap(source["label"],22);b=wrap(target["label"],22)
-                relation=wrap(e.get("display_predicate") or e["predicate"],26)
-                scope=wrap(e["scope"],27);notes=[]
+                a=wrap(source["label"],16);b=wrap(target["label"],16)
+                relation=wrap(e.get("display_predicate") or e["predicate"],27)
+                scope=wrap(e["scope"],30);notes=[]
                 if e.get("polarity")!="positive":notes.append(labels.get(e["polarity"],e["polarity"]))
                 if e.get("strength")!="direct":notes.append(labels.get(e["strength"],e["strength"]))
-                if notes:scope+=wrap(" · ".join(notes),27)
-                height=max(85,29+max(len(a),len(b))*20,25+len(relation)*19+len(scope)*16)
-                layouts.append((y,height,e,source,target,a,b,relation,scope));y+=height+14
+                if notes:scope+=wrap(" · ".join(notes),30)
+                node_half=(max(len(a),len(b))-1)*12
+                above=max(30,23+node_half,29+(len(relation)-1)*23)
+                below=max(30,18+node_half,32+(len(scope)-1)*21)
+                center=y+above
+                layouts.append((center,e,source,target,a,b,relation,scope));y+=above+below+15
             root=ET.Element("{"+NS+"}svg",{"width":"174mm","height":str(round(y/708*174,2))+"mm","viewBox":f"0 0 708 {y}","role":"img"})
             element(root,"title",{}).text=question
             element(root,"rect",{"width":708,"height":y,"fill":"white"})
-            label(root,14,24,title,size=20,anchor="start",bold=True)
-            for y0,h,e,src,tgt,a,b,rel,scope in layouts:
-                center=y0+h/2
+            label(root,12,27,title,size=23,anchor="start",bold=True)
+            for center,e,src,tgt,a,b,rel,scope in layouts:
                 g=element(root,"g",{"id":e["id"]})
                 element(g,"title",{}).text=" | ".join([e["scope"]]+[r["quote"] for r in e["evidence"]])
-                for x,n,lines in ((13,src,a),(495,tgt,b)):
-                    box_h=max(48,len(lines)*20+16)
-                    element(g,"rect",{"x":x,"y":center-box_h/2,"width":198,"height":box_h,"rx":6,"fill":COLORS.get(n["type"].casefold(),"#afc0ca"),"stroke":INK,"stroke-width":1})
-                    label(g,x+99,center-(len(lines)-1)*10+5,lines,size=16,bold=True)
-                attrs={"x1":215,"x2":485,"y1":center,"y2":center,"stroke":INK,"stroke-width":2}
+                for x,n,lines in ((20,src,a),(516,tgt,b)):
+                    marker=element(g,"circle",{"cx":x,"cy":center,"r":7,"fill":COLORS.get(n["type"].casefold(),"#687783")})
+                    element(marker,"title",{}).text=n["type"]
+                    label(g,x+16,center-(len(lines)-1)*12+6,lines,size=18,anchor="start",bold=True)
+                attrs={"x1":208,"x2":488,"y1":center,"y2":center,"stroke":INK,"stroke-width":2}
                 if e["strength"]!="direct":attrs["stroke-dasharray"]="5 4"
                 element(g,"line",attrs)
-                element(g,"path",{"d":f"M 479 {center-5} L 491 {center} L 479 {center+5} Z","fill":INK})
-                label(g,352,center-8-(len(rel)-1)*18,rel,size=15)
-                label(g,352,center+19,scope,size=13)
+                element(g,"path",{"d":f"M 482 {center-5} L 494 {center} L 482 {center+5} Z","fill":INK})
+                label(g,350,center-10-(len(rel)-1)*23,rel,size=18)
+                label(g,350,center+23,scope,size=16)
             name=f"query-{qid:02d}-{offset//6+1:02d}"
             svg=Path(out)/(name+".svg");svg.parent.mkdir(parents=True,exist_ok=True)
             atomic_text(svg,ET.tostring(root,encoding="unicode"))

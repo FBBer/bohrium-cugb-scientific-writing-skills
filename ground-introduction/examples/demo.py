@@ -30,3 +30,6 @@ plan={"sections":[{"title":"Introduction","paragraphs":[[{"id":"I1","role":"comp
 write(work/"intro-plan.json",plan);r=render("introduction",idx,plan,result)
 assert not r["issues"] and len(read(result/"comparison-matrix.json"))==2 and len(r["sources_used"])==3
 done({"introduction":"introduction.md","comparison":"comparison-matrix.json"},ev,["Gap limited to the two supplied studies."])
+
+from subprocess import run as run_view
+run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "introduction.md"), str(result / "reading.html")], check=True)

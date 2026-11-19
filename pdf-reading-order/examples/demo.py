@@ -47,3 +47,6 @@ report=run(inp/"columns.pdf",result/"layout.json","eng")
 p=report["pages"][0];assert [r["text"] for r in p["lines"]]==["Left first observation","Left second observation","Right first comparison","Right second comparison"]
 assert p["marginalia"][0]["text"]=="Optics report"
 done({"pages":len(report["pages"]),"reading_order":[r["id"] for r in p["lines"]]},[{"page":1,"bbox":p["lines"][0]["bbox"]}])
+
+from subprocess import run as run_view
+run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "layout.json"), str(result / "reading.html")], check=True)

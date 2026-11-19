@@ -116,7 +116,7 @@ def glossary_issues(source,target,term,spec):
 def audit(source,draft,mode):
     expected=source["segments"]
     gloss=source.get("glossary",{})
-    findings=[]; changes=[]; manuscript=[]
+    findings=[]; changes=[]; manuscript=[]; alignment=[]
     ids=[r["id"] for r in expected]; seen=[r.get("id") for r in draft]
     if len(set(ids))!=len(ids): findings.append({"issue":"duplicate source segment id"})
     if ids!=seen: findings.append({"issue":"order or coverage differs","expected":ids,"actual":seen})
@@ -154,10 +154,13 @@ def audit(source,draft,mode):
             if not row.get("reason") or not row.get("type"):
                 findings.append({"id":key,"issue":"missing change classification or explanation"})
         if mode=="translate":
+            alignment.append({"id":key,"location":where,"original":old,"target":target})
             manuscript.append(f"### {key} · {where}\n\n{old}\n\n{target}")
         else:
             manuscript.append(target)
-    return {"segments_expected":len(expected),"segments_received":len(draft),"findings":findings,"changes":changes}, "\n\n".join(manuscript)+"\n"
+    report={"segments_expected":len(expected),"segments_received":len(draft),"findings":findings,"changes":changes}
+    if mode=="translate":report["alignment"]=alignment
+    return report, "\n\n".join(manuscript)+"\n"
 
 
 if __name__=="__main__":

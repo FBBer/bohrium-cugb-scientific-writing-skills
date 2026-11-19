@@ -41,6 +41,12 @@ citation-audit.json 给出每处引文所在原句、该句及标记在原稿中
 python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
 ```
 
+## 阅读版式
+
+在同一行列出原稿句子、原编号和新编号，编号按列对齐。按首次引用顺序另排书目；原始键和冲突证据保留在引文记录。白底黑字，以留白区分内容。来源、单位和影响理解的限定信息使用可读字号。过程记录另存。
+
+需要阅读页时，运行 `python3 "$S/scripts/view.py" 主成果路径 阅读页.html`，将“主成果路径”替换为实际生成的 `citation-audit.json` 路径。离线页面可在浏览器打开。正式交付仍使用题目指定的文件、字段和模板。
+
 ## 独立运行环境
 
 JSON、RIS 和带标签的 EndNote 导入使用 Python 标准库。BibTeX 导入需要 Pandoc，本地实测版本 3.10.1；可安装系统提供的 pandoc 包，并用 pandoc --version 核对。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。

@@ -41,6 +41,12 @@ python3 "$S/scripts/nanopubs.py" /app/work/sources.json /app/work/claims.json /a
 python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
 ```
 
+## 阅读版式
+
+以适用条件为小节标题，突出断言原句。保留否定、推测和转引限定，逐条关联证据。命名图与版本标识放在该条出处内。白底黑字，以留白区分内容。来源、单位和影响理解的限定信息使用可读字号。过程记录另存。
+
+需要阅读页时，运行 `python3 "$S/scripts/view.py" 主成果路径 阅读页.html`，将“主成果路径”替换为实际生成的 `assertions.json` 路径。离线页面可在浏览器打开。正式交付仍使用题目指定的文件、字段和模板。
+
 ## 独立运行环境
 
 生成 TriG 使用 Python 标准库。在独立环境可用 python3 -m pip install rdflib 安装独立 RDF 解析器，本地验证版本为 7.6.0。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。

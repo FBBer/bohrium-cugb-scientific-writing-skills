@@ -33,3 +33,6 @@ assert (result/"nanopubs.trig").read_text().count("np:hasAssertion")==1
 bad={**claim,"evidence":[{**ev,"quote":"invented phrase"}]}
 assert export(idx,{"claims":[bad]},work/"rejected")[1]
 done(accepted,[ev])
+
+from subprocess import run as run_view
+run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "assertions.json"), str(result / "reading.html")], check=True)

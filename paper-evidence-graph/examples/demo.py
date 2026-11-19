@@ -30,3 +30,6 @@ plan={"nodes":[{"key":"m","type":"method","label":"aperture mask","scope":"optic
       "queries":[{"question":"Which task used a mask?","where":{"source":"m","predicate":"used_for"}},{"question":"Did the test implement the mask?","where":{"source":"t","target":"m"}},{"question":"Which tasks have direct evidence?","where":{"strength":"direct"},"target_type":"task"}]}
 write(work/"graph-plan.json",plan);g,q=export(idx,plan,result);assert not g["issues"] and [len(x["edges"]) for x in q]==[1,0,1]
 done({"graph":"graph.graphml","queries":q},[ev])
+
+from subprocess import run as run_view
+run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "graph.json"), str(result / "reading.html")], check=True)

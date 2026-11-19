@@ -34,3 +34,6 @@ from copy import deepcopy
 wrong=deepcopy(plan);wrong["sections"][1]["paragraphs"][0][0]["text"]="The detector recorded 4 V in shade."
 assert render("notes",idx,wrong,work/"bad")["issues"]
 done({"notes":"notes.md","coverage":report["sections"]},[evidence(idx,s) for s in sections.values()])
+
+from subprocess import run as run_view
+run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "notes.md"), str(result / "reading.html")], check=True)

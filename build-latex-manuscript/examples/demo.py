@@ -30,7 +30,7 @@ source=r"""\documentclass{article}
 \section{Synthetic calibration}
 \begin{equation}\label{eq:gain}g=x_1/x_0.\end{equation}
 The gain is defined by Eq.~\eqref{eq:gain}.
-\begin{tabular}{lr}Setting & Value\\ A & 4\\\end{tabular}
+\par\medskip\noindent\begin{tabular}{@{}lr@{}}\textbf{Setting} & \textbf{Value}\\\hline A & 4\\\end{tabular}
 \end{document}
 """
 atomic_text(project/"main.tex",source)
@@ -38,3 +38,6 @@ r=build(project,"main.tex",result/"latex-build");assert r["status"]=="success",r
 assert (result/"latex-build/manuscript.pdf").read_bytes().startswith(b"%PDF-")
 assert (result/"latex-build/source/main.tex").read_text()==source
 done({"file":"latex-build/manuscript.pdf","source":"latex-build/source/main.tex","converged":r["converged"]},[{"source":"project/main.tex","location":"eq:gain"}])
+
+from subprocess import run as run_view
+run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "latex-build/manuscript.pdf"), str(result / "reading.html")], check=True)
