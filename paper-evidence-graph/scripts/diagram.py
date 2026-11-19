@@ -1,5 +1,4 @@
 """Draw the directed evidence relations returned by a query as editable, print-sized SVG pages."""
-import math
 from pathlib import Path
 import unicodedata
 from xml.etree import ElementTree as ET
@@ -8,7 +7,10 @@ from casework import atomic_text
 NS="http://www.w3.org/2000/svg"
 ET.register_namespace("",NS)
 FONT="Noto Sans CJK SC,Source Han Sans SC,PingFang SC,Microsoft YaHei,Arial,sans-serif"
-COLORS={"method":"#dbeceb","task":"#e8eef9","metric":"#f9e9d6","data":"#e4eddb","finding":"#eee6f4","author":"#f4e6e3"}
+COLORS={
+    "method":"#86c4b8", "task":"#92b8e2", "metric":"#edb576",
+    "data":"#a9c88b", "finding":"#c5a9d8", "author":"#e3a49a",
+}
 
 def element(parent,tag,attrs):
     return ET.SubElement(parent,"{"+NS+"}"+tag,{k:str(v) for k,v in attrs.items()})
@@ -56,7 +58,7 @@ def render(graph,answers,out):
                 element(g,"title",{}).text=" | ".join([e["scope"]]+[r["quote"] for r in e["evidence"]])
                 for x,n,lines in ((13,src,a),(495,tgt,b)):
                     box_h=max(48,len(lines)*20+16)
-                    element(g,"rect",{"x":x,"y":center-box_h/2,"width":198,"height":box_h,"rx":6,"fill":COLORS.get(n["type"].casefold(),"#e8edf1"),"stroke":"#acbfc5","stroke-width":1})
+                    element(g,"rect",{"x":x,"y":center-box_h/2,"width":198,"height":box_h,"rx":6,"fill":COLORS.get(n["type"].casefold(),"#afc0ca"),"stroke":"#566e78","stroke-width":1})
                     label(g,x+99,center-(len(lines)-1)*10+5,lines,size=16,bold=True)
                 attrs={"x1":215,"x2":485,"y1":center,"y2":center,"stroke":"#395967","stroke-width":2}
                 if e["strength"]!="direct":attrs["stroke-dasharray"]="5 4"

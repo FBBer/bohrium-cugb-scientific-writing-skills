@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 from urllib.parse import quote
 from casework import read,write,atomic_text,check_evidence
 
@@ -17,6 +18,40 @@ def digest(obj):
     return hashlib.sha256(json.dumps(obj,sort_keys=True,ensure_ascii=False,separators=(",",":")).encode()).hexdigest()[:24]
 def uri(name): return "<urn:scholar:"+name+">"
 
+MODAL_TERMS=re.compile(r"\b(?:may|might|could|possibly|probably|suggest(?:s|ed)?|consistent with|cannot rule out|cannot exclude)\b|可能|提示|推测|无法排除|不能排除|与.{1,12}相符",re.I)
+
+def source_cues(text):
+    for match in MODAL_TERMS.finditer(text):
+        if match[0]=="May":
+            left=text[max(0,match.start()-18):match.start()]
+            right=text[match.end():match.end()+12]
+            if (re.match(r"\s+\d{1,4}\b",right)
+                    or re.search(r"\b(?:[0-3]?\d(?:st|nd|rd|th)?|in|during|since|until|last|next|early|late|mid)\s*[- ]?$",left,re.I)):
+                continue
+        yield match[0]
+
+def modality(item,evidence):
+    quotes=[str(e.get("quote","")) for e in evidence]
+    cues=list(dict.fromkeys(cue for fragment in quotes for cue in source_cues(fragment)))
+    supplied=item.get("source_modality")
+    if supplied:
+        if not isinstance(supplied,str) or not any(supplied.casefold() in fragment.casefold() for fragment in quotes):
+            return None,"modality wording must occur in the cited passage"
+        if supplied not in cues:cues.append(supplied)
+    strength=item.get("claim_strength")
+    if strength and strength not in {"reported","tentative","inferred"}:
+        return None,"unknown claim strength"
+    if item.get("evidence_type")=="inference":
+        strength="inferred"
+    elif strength=="reported" and cues and not item.get("modality_context"):
+        strength="tentative"
+    if not strength:
+        strength="inferred" if item.get("evidence_type")=="inference" else "tentative" if cues else "reported"
+    summary={"claim_strength":strength,"source_cues":cues}
+    if item.get("claim_strength") and item["claim_strength"]!=strength:
+        summary["strength_adjustment"]={"submitted":item["claim_strength"],"applied":strength}
+    return summary,None
+
 
 def export(index,record,out):
     sources={s["id"]:s for s in index["sources"]};blocks=[];accepted=[];issues=[];seen=set()
@@ -30,13 +65,17 @@ def export(index,record,out):
         if item.get("polarity") not in {"positive","negative","uncertain"}: errors.append("unknown polarity")
         if not evidence: errors.append("needs a minimal original quotation")
         if item.get("evidence_type")=="inference" and not item.get("reason"): errors.append("missing inferential bridge")
+        qualifiers,err=modality(item,evidence)
+        if err:errors.append(err)
         if errors:
             issues.append({"id":key,"reasons":errors});continue
         payload={k:item[k] for k in ("subject","predicate","object","scope","polarity","evidence_type","statement")}
+        payload["claim_strength"]=qualifiers["claim_strength"]
+        if item.get("modality_context"):payload["modality_context"]=item["modality_context"]
         if item.get("reason"):payload["reason"]=item["reason"]
         bindings=sorted((sources[e["id"]]["source"],sources[e["id"]]["location"],e["quote"]) for e in evidence)
         source_editions={source:meta.get(source,{}) for source,_,_ in bindings}
-        sid=digest([payload,bindings,source_editions,record.get("publication",{})])
+        sid=digest([payload,qualifiers["source_cues"],bindings,source_editions,record.get("publication",{})])
         if sid in seen: continue
         seen.add(sid)
         base="np:"+sid
@@ -44,6 +83,8 @@ def export(index,record,out):
         claim=uri(base+":claim")
         graphs=[f"{h} {{ {n} a np:Nanopublication ; np:hasAssertion {a} ; np:hasProvenance {p} ; np:hasPublicationInfo {i} . }}"]
         fields=" ; ".join("c:"+k+" "+literal(v) for k,v in payload.items())
+        for cue in qualifiers["source_cues"]:
+            fields+=" ; c:source_modality "+literal(cue)
         graphs.append(f"{a} {{ {claim} a c:QualifiedClaim ; {fields} . }}")
         triples=[]
         for j,(source,location,fragment) in enumerate(bindings,1):
@@ -56,10 +97,10 @@ def export(index,record,out):
                 for value in values: triples.append(f"{document} dct:{attr} {literal(value)} .")
         graphs.append(p+" {\n  "+"\n  ".join(triples)+"\n}")
         info=[f"{n} dct:conformsTo <https://nanopub.net/guidelines/working_draft/> ."]
-        for attr in ("creator","created","hasVersion"):
+        for attr in ("creator","created","hasVersion","license"):
             if record.get("publication",{}).get(attr): info.append(f"{n} dct:{attr} {literal(record['publication'][attr])} .")
         graphs.append(i+" { "+" ".join(info)+" }");blocks.extend(graphs)
-        accepted.append({**item,"nanopub_id":"urn:scholar:"+base})
+        accepted.append({**item,**qualifiers,"nanopub_id":"urn:scholar:"+base})
     atomic_text(out/"nanopubs.trig",PREFIX+"\n\n"+"\n\n".join(blocks)+"\n")
     write(out/"assertions.json",{"claims":accepted,"source_metadata":meta,"unresolved":issues})
     return accepted,issues

@@ -62,10 +62,31 @@ def query(graph,spec,refs):
             "nodes":sorted({e[x] for e in hits for x in ("source","target")}),"evidence":unique([ev for e in hits for ev in e["evidence"]]),
             "status":"supported_matches" if hits else "no_supported_match_in_sources"}
 
+def edition_anchors(index,plan,previous):
+    prior=(previous or {}).get("anchors",{})
+    by_document=collections.defaultdict(list)
+    for line in index["sources"]:
+        by_document[line["source"]].append((line["location"],line["text"]))
+    versions={name:stable("v",sorted(rows)) for name,rows in by_document.items()}
+    remap={};anchors={};sources=[]
+    for line in index["sources"]:
+        old=line["id"]
+        record={"source":line["source"],"location":line["location"],"edition":versions[line["source"]],
+                "case_id":index.get("case_id")}
+        key=old if old not in prior or prior[old]==record else old+"-"+stable("v",record)[1:]
+        remap[old]=key
+        anchors[key]=record
+        sources.append({**line,"id":key})
+    updated=dict(plan)
+    for collection in ("nodes","edges"):
+        updated[collection]=[{**r,"evidence":[{**e,"id":remap.get(e.get("id"),e.get("id"))} for e in r.get("evidence",[])]}
+                             for r in plan.get(collection,[])]
+    return {**index,"sources":sources},updated,{**prior,**anchors}
+
 def export(index,plan,out,previous=None):
+    index,plan,anchors=edition_anchors(index,plan,previous)
     graph,refs=dataset(index,plan,previous)
-    anchors={s["id"]:{"source":s["source"],"location":s["location"]} for s in index["sources"]}
-    graph["anchors"]={**(previous or {}).get("anchors",{}),**anchors}
+    graph["anchors"]=anchors
     answers=[query(graph,q,refs) for q in plan.get("queries",[])]
     write(out/"graph.json",graph);write(out/"queries.json",answers)
     ns="http://graphml.graphdrawing.org/xmlns";ET.register_namespace("",ns)

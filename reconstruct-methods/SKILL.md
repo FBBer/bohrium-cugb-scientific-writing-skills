@@ -25,7 +25,7 @@ settings.py 对 JSON、YAML、CSV、配置和日志列出同名参数的候选�
 
 写有逻辑先后的步骤，各含输入、操作、输出和判定条件。分开说明数据来源与版本、预处理与泄漏控制、样本单位及划分、训练/验证/测试、基线版本和计算预算、评价指标、重复与汇总口径。复现清单只用实际给出的命令/环境，示意命令标明需填项。为每个条件说明失效的具体场景。对无日志证明的步骤区分“拟采用”和“实际执行”。
 
-plan 含 language、sections，分节的 paragraphs 是有序句项数组的数组。每项有 id、role、text、evidence=[{"id":"S","quote":"原文"}]。角色为 procedure、data、split、parameter、evaluation、baseline、environment、repetition、limitation。另给 parameters=[{"name":"参数","value":"实际值","unit":"单位或无量纲","scope":"运行/阶段","status":"reported","evidence":[...]}]；冲突项列两个来源及 resolution，未报告给原因。reproduction 对象记录版本、环境、命令、数据、种子、划分、可复做步骤及缺口。
+plan 含 language、sections，分节的 paragraphs 是有序句项数组的数组。每项有 id、role、text、evidence=[{"id":"S","quote":"原文"}]。角色为 procedure、data、split、parameter、evaluation、baseline、environment、repetition、limitation。另给 parameters=[{"name":"参数","value":"实际值","unit":"单位或无量纲","scope":"运行/阶段","status":"reported","evidence":[...]}]；冲突项列两个来源及 resolution，未报告给原因。记录给出参数值但缺单位时，保留数值，将 unit 留空并设 unit_status 为 unreported。“无量纲”须能回指材料中的定义，或在 unit_derivation 逐项写明量纲如何相消并附来源。reproduction 对象记录版本、环境、命令、数据、种子、划分、可复做步骤及缺口。
 
 ```sh
 python3 "$S/scripts/settings.py" /input /app/work/settings.json

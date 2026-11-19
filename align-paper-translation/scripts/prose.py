@@ -49,6 +49,36 @@ def diff(old,new):
     return [{"type":kind,"source_offsets":[i,j],"target_offsets":[k,l],"before":old[i:j],"after":new[k:l]}
             for kind,i,j,k,l in difflib.SequenceMatcher(a=old,b=new,autojunk=False).get_opcodes() if kind!="equal"]
 
+MARKER=re.compile(r"⟪[A-Z][A-Z0-9_:. -]{0,48}⟫|⟦[A-Z][A-Z0-9_:. -]{0,48}⟧|__(?:MATH|FORMULA|CITE|TERM|PLACEHOLDER|TEMP)(?:[_:-][A-Za-z0-9.-]+)*__",re.ASCII)
+
+def term_spans(text,term):
+    if not isinstance(term,str) or not term.strip():
+        return []
+    pattern=re.escape(term)
+    if re.fullmatch(r"[A-Za-z0-9_ -]+",term):
+        pattern=r"(?<![A-Za-z0-9_])"+pattern+r"(?![A-Za-z0-9_])"
+    return [m.span() for m in re.finditer(pattern,text,re.I)]
+
+def glossary_issues(source,target,term,spec):
+    if not term_spans(source,term):
+        return []
+    if isinstance(spec,str):
+        spec={"target":spec}
+    preferred=spec.get("target")
+    aliases=spec.get("accepted",[])
+    forbidden=spec.get("forbidden",[])
+    if isinstance(aliases,str): aliases=[aliases]
+    if isinstance(forbidden,str): forbidden=[forbidden]
+    findings=[]
+    accepted_spans=[span for t in [preferred,*aliases] for span in term_spans(target,t)]
+    if preferred and not accepted_spans:
+        findings.append({"issue":"glossary term","source":term,"expected":preferred})
+    for wrong in forbidden:
+        matches=term_spans(target,wrong)
+        if any(not any(a<=start and stop<=b and (a,b)!=(start,stop) for a,b in accepted_spans) for start,stop in matches):
+            findings.append({"issue":"forbidden glossary variant","source":term,"variant":wrong,"expected":preferred})
+    return findings
+
 
 def audit(source,draft,mode):
     expected=source["segments"]
@@ -73,13 +103,11 @@ def audit(source,draft,mode):
         seq_a,seq_b=ordered(old),ordered(target)
         if seq_a!=seq_b and Counter(seq_a)==Counter(seq_b) and len(set(seq_a))>1:
             findings.append({"id":key,"issue":"review quantity-to-entity assignment","source_order":seq_a,"target_order":seq_b})
-        for term,target_term in gloss.items():
-            expected_term=target_term.get("target") if isinstance(target_term,dict) else target_term
-            aliases=target_term.get("accepted",[]) if isinstance(target_term,dict) else []
-            if not expected_term: continue
-            bound=lambda s: (r"(?<![A-Za-z0-9_])"+re.escape(s)+r"(?![A-Za-z0-9_])") if re.fullmatch(r"[A-Za-z0-9_ -]+",s) else re.escape(s)
-            if re.search(bound(term),old,re.I) and not any(re.search(bound(v),target,re.I) for v in [expected_term]+aliases):
-                findings.append({"id":key,"issue":"glossary term","source":term,"expected":expected_term})
+        added_markers=Counter(MARKER.findall(target))-Counter(MARKER.findall(old))
+        if added_markers:
+            findings.append({"id":key,"issue":"unresolved placeholder","markers":dict(added_markers)})
+        for term,spec in gloss.items():
+            findings.extend({"id":key,**result} for result in glossary_issues(old,target,term,spec))
         review=linguistic_flags(old,target)
         if review: findings.append({"id":key,"issue":"semantic review","categories":review})
         for label,pattern in {"figure":r"(?:\bfig(?:ure)?\.?|图)\s*([0-9]+[a-z]?)",

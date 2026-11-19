@@ -20,17 +20,73 @@ def absent_measurements(sentence,source):
     known={(value,unit) for value,unit,_ in quantities(source)}
     return [raw for value,unit,raw in quantities(sentence) if (value,unit) not in known]
 
+NO_DIMENSION=re.compile(r"\b(?:dimensionless|unitless)\b|\b(?:has|have|carries|takes) no (?:physical )?units?\b|无(?:物理)?量纲|无单位",re.I)
+NEGATED_DIMENSION=re.compile(r"\b(?:not|never|neither)\s+(?:an?\s+)?(?:dimensionless|unitless)\b|(?:非|不是|并非|并非为|并非是)无(?:物理)?量纲|(?:未|没有)(?:记录|注明|报告|给出|说明)(?:其)?单位|无单位(?:信息|记录|说明|标注)",re.I)
+UNSPECIFIED_UNITS={"","none","unknown","unreported","未报告","未知","—","-"}
+
+def explicit_dimensionless(quote):
+    return bool(NO_DIMENSION.search(NEGATED_DIMENSION.sub("",quote)))
+
+def supported_cancellation(derivation,quotes):
+    if not isinstance(derivation,str):
+        return False
+    measured=[u for _,u,_ in quantities(quotes) if u]
+    for unit in set(measured):
+        if measured.count(unit)<2:
+            continue
+        if (re.search(r"(?<![A-Za-z])"+re.escape(unit)+r"\s*/\s*"+re.escape(unit)+r"(?![A-Za-z])",derivation)
+                and re.search(r"(?:[A-Za-z]\w*\s*/\s*[A-Za-z]\w*|ratio of|divided by|除以|之比)",quotes,re.I)):
+            return True
+    return False
+
+def parameter_unit_issue(row, unit, evidence):
+    if unit.casefold() not in {"dimensionless","unitless","无量纲","无单位","1"}:
+        return None
+    name=str(row.get("name","")).strip().casefold()
+    if (name in {"seed","random seed","rng seed","随机种子","iterations","epochs","samples","updates","folds","迭代次数","更新次数","样本数","折数"}
+            and re.fullmatch(r"[+-]?\d+",str(row.get("value","")).strip())):
+        return None
+    quotes=" ".join(e.get("quote","") for e in evidence)
+    values={v for v,_,_ in quantities(str(row.get("value","")))}
+    contrary=bool(NEGATED_DIMENSION.search(quotes)) or any(v in values and u for v,u,_ in quantities(quotes))
+    if not contrary and (explicit_dimensionless(quotes) or supported_cancellation(row.get("unit_derivation"),quotes)):
+        return None
+    return {"parameter":row.get("name"),"issue":"dimensionless unit needs an explicit source or dimensional derivation","unit":unit}
+
 def tabular(header, rows):
     stream=io.StringIO()
     w=csv.writer(stream,delimiter="\t",lineterminator="\n")
     w.writerow(header);w.writerows(rows)
     return stream.getvalue()
 
+def write_paper_cards(output, notes, comparisons, errors):
+    papers={}
+    for key,note in notes.items():
+        for name,refs in note["sources"].items():
+            paper=papers.setdefault(name,{"facts":[],"interpretations":[],"limits":[]})
+            field="interpretations" if note["voice"]!="paper" else "limits" if note["role"]=="limitation" else "facts"
+            entry={"claim":key,"text":note["text"],"voice":note["voice"],
+                   "role":note["role"],"condition":note["condition"],"evidence":refs}
+            if note["reason"]:entry["reason"]=note["reason"]
+            if len(note["sources"])>1:entry["related_sources"]=note["sources"]
+            paper[field].append(entry)
+    comparisons_out=[]
+    for row in comparisons:
+        left,right=row.get("left"),row.get("right")
+        if (left not in notes or right not in notes or left==right or not row.get("axis")
+                or row.get("comparability") not in {"comparable","conditional","not_comparable"}
+                or not row.get("reason")):
+            errors.append({"comparison":row.get("axis"),"issue":"comparison needs two supported claims, scale and reason"})
+            continue
+        comparisons_out.append({**row,"left_sources":notes[left]["sources"],"right_sources":notes[right]["sources"]})
+    write(output/"paper-cards.json",{"papers":papers,"comparisons":comparisons_out})
+
 
 def render(mode, index, plan, output):
     sources={r["id"]:r for r in index["sources"]}
     report={"mode":mode,"issues":[],"sections":[],"claims":0,"evidence_checks":0,"unresolved":[]}
     lookup=[]; paragraphs=[]; anchors={}; keywords=defaultdict(list); used=set(); ids=set()
+    card_notes={}
     for section in plan["sections"]:
         title=section["title"]; section_text=[]; report["sections"].append(title)
         for group in section.get("paragraphs",[]):
@@ -56,6 +112,9 @@ def render(mode, index, plan, output):
                 for err in check_evidence(ev,index["sources"]): report["issues"].append({"claim":key,"issue":err})
                 report["evidence_checks"]+=len(ev)
                 joined=" ".join(e.get("quote","") for e in ev)
+                if (mode=="methods" and kind=="parameter" and state=="supported" and explicit_dimensionless(body)
+                        and (NEGATED_DIMENSION.search(joined) or not (explicit_dimensionless(joined) or supported_cancellation(row.get("unit_derivation"),joined)))):
+                    report["issues"].append({"claim":key,"issue":"unit assertion needs a source or dimensional derivation"})
                 for num in absent_measurements(re.sub(r"\[[^\]]+\]","",body),joined):
                     if state not in {"unreported","uncertain"} and not row.get("derivation"):
                         report["issues"].append({"claim":key,"issue":"number needs source or derivation","value":num})
@@ -72,7 +131,18 @@ def render(mode, index, plan, output):
                 for word in row.get("keywords",[]): keywords[word.casefold()].append(key)
                 if body is None:continue
                 if mode=="notes":
+                    refs=defaultdict(list)
+                    for e in ev:
+                        if e["id"] in sources:
+                            original=sources[e["id"]]
+                            refs[original["source"]].append({"location":original["location"],"quote":e["quote"]})
+                    voice=("reader" if state=="inference" else "authors" if kind=="interpretation" else "paper")
+                    if refs and state not in {"unreported","conflict","uncertain"}:
+                        card_notes[key]={"text":body,"role":kind,"voice":voice,"condition":row.get("condition",""),
+                                         "reason":row.get("reason",""),"sources":dict(refs)}
                     locs=", ".join(sources[e["id"]]["source"]+"#"+sources[e["id"]]["location"] for e in ev if e["id"] in sources)
+                    if state=="inference":
+                        body=("读者解读：" if plan.get("language","").startswith("zh") else "Reader’s interpretation — ")+body
                     sentences.append(body+(" 〔"+locs+"〕" if locs else ""))
                 else: sentences.append(body)
             if sentences:
@@ -83,26 +153,37 @@ def render(mode, index, plan, output):
     atomic_text(output/"claim-sources.tsv",tabular(["claim","section","role","status","source","location","quote","condition"],lookup))
     if mode=="notes":
         write(output/"topic-index.json",dict(sorted(keywords.items())))
+        write_paper_cards(output,card_notes,plan.get("comparisons",[]),report["issues"])
     if mode=="introduction":
         axes=plan.get("comparisons",[])
         for a in axes:
             for e in check_evidence(a.get("evidence",[]),index["sources"]): report["issues"].append({"comparison":a.get("work"),"issue":e})
             if not a.get("evidence"): report["issues"].append({"comparison":a.get("work"),"issue":"unanchored comparison"})
         write(output/"comparison-matrix.json",axes)
+        contributions=[row for row in lookup if row[2]=="contribution" and row[3]=="supported"]
+        atomic_text(output/"contribution-evidence.tsv",tabular(["claim","section","role","status","source","location","quote","condition"],contributions))
     if mode=="methods":
         params=plan.get("parameters",[])
-        for r in params:
+        audited_params=[]
+        for original in params:
+            r=dict(original)
             ev=r.get("evidence",[]); state=r.get("status","reported")
             for err in check_evidence(ev,index["sources"]): report["issues"].append({"parameter":r.get("name"),"issue":err})
             value=str(r.get("value","")).strip();unit=str(r.get("unit") or "").strip()
-            measured=value+(" "+unit if unit not in {"","1","none","无量纲","dimensionless","—","-"} and unit not in value else "")
+            unit_issue=parameter_unit_issue(r,unit,ev)
+            if unit_issue:
+                report["issues"].append(unit_issue)
+                r["unit"]=None
+                r["unit_status"]="unreported"
+            measured=value+(" "+unit if unit.casefold() not in UNSPECIFIED_UNITS|{"1","dimensionless","unitless","无量纲","无单位"} and unit not in value else "")
             quotes=" ".join(e.get("quote","") for e in ev)
             match=(not absent_measurements(measured,quotes) if quantities(measured) else bool(value) and value in quotes)
             if state in {"reported","conflict"} and r.get("value") is not None and (not ev or not match) and not r.get("derivation"):
                 report["issues"].append({"parameter":r.get("name"),"issue":"value absent from primary evidence"})
             if state=="conflict" and (len(ev)<2 or not r.get("resolution")):
                 report["issues"].append({"parameter":r.get("name"),"issue":"conflict needs alternatives and decision"})
-        write(output/"parameters.json",params)
+            audited_params.append(r)
+        write(output/"parameters.json",audited_params)
         write(output/"reproduction.json",plan.get("reproduction",{}))
     report["sources_used"]=sorted(used);report["status"]="partial" if report["issues"] else "complete"
     write(output/"audit.json",report)

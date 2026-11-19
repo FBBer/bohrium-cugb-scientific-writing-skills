@@ -1,5 +1,6 @@
 """Deduplicate supported bibliographic records and renumber numerical citations in reading order."""
 import argparse
+from bisect import bisect_right
 import collections
 import json
 from pathlib import Path
@@ -64,10 +65,13 @@ def groups(records):
         compatible=[j for j in candidates if not f[0] or not norm(merged[j].get("title")) or norm(merged[j].get("title"))==f[0]]
         idx=compatible[0] if len(compatible)==1 else None;reason="same normalized DOI"
         if candidates and idx is None:
-            issues.append({"id":rid,"issue":"same DOI, conflicting identity; retained separate pending source verification","variants":[merged[j].get("title") for j in candidates]+[r.get("title")]})
+            issues.append({"id":rid,"related_ids":[rid]+[str(merged[j].get("id",j+1)) for j in candidates],
+                           "issue":"same DOI, conflicting identity; retained separate pending source verification","variants":[merged[j].get("title") for j in candidates]+[r.get("title")]})
         if idx is None and f[0] and f[1] and f[2] and f[3] and f in byfinger:
             previous=byfinger[f];prev=doi(merged[previous].get("DOI"))
-            if d and prev and d!=prev:issues.append({"id":rid,"issue":"similar metadata with distinct DOIs; retain versions"})
+            if d and prev and d!=prev:
+                issues.append({"id":rid,"related_ids":[rid,str(merged[previous].get("id",previous+1))],
+                               "issue":"similar metadata with distinct DOIs; retain versions"})
             else:idx=previous;reason="exact normalized title, author list, year and type"
         if idx is None:idx=len(merged);merged.append(r)
         else:
@@ -105,22 +109,55 @@ REF_HEAD=re.compile(r"(?im)^(?:#{1,6}\s+)?(?:references|bibliography|参考文�
 NEXT_SECTION=re.compile(r"(?im)^(?:#{1,6}\s+\S|\\(?:section|chapter)\*?\{|(?:appendix|supplementary materials|附录)(?:\s|$))")
 REF_ENTRY=re.compile(r"(?m)^[ \t]*(?:\[(\d+)\]|(\d+)[.)、])[ \t]*(.*(?:\n(?![ \t]*(?:\[\d+\]|\d+[.)、]))[^\n]+)*)")
 
+SENTENCE_END=re.compile(r"[。！？!?]+|(?<!\d)\.(?=\s|$)|(?<=\d)\.(?=\s+[A-Z]|$)|\n[ \t]*\n")
+
+def sentence_breaks(text):
+    breaks=[]
+    for match in SENTENCE_END.finditer(text):
+        prior=text[max(0,match.start()-12):match.start()]
+        if match[0]=="." and re.search(r"\b(?:et al|e\.g|i\.e|Fig|Eq|Dr|Prof|[A-Z])\Z",prior):
+            continue
+        breaks.append(match.end())
+    return breaks
+
+def citation_context(text,start,ends):
+    index=bisect_right(ends,start)
+    left=ends[index-1] if index else 0
+    right=ends[index] if index<len(ends) else len(text)
+    while left<right and text[left].isspace(): left+=1
+    while right>left and text[right-1].isspace(): right-=1
+    return {"source_offsets":[left,right],"text":text[left:right]}
+
+def metadata_status(record,issues):
+    rid=str(record.get("id",""))
+    required={"title":record.get("title"),"author":record.get("author") or record.get("editor"),"year":year(record)}
+    if record.get("type") in {"article-journal","paper-conference","chapter"}:
+        required["container-title"]=record.get("container-title")
+    missing=[name for name,value in required.items() if not value]
+    conflicts=[i["issue"] for i in issues if str(i.get("id",""))==rid or rid in i.get("related_ids",[])]
+    return {"record_id":rid,"field_coverage":"partial" if missing else "core_fields_present","missing_core_fields":missing,
+            "doi":doi(record.get("DOI")) or None,"metadata_issues":conflicts,"external_verification":"not_performed"}
+
 def reconcile(records,manuscript,labels=None):
     merged,mapping,decisions,issues=groups(records)
     if labels is None:
         labels={str(i):str(r.get("id",i)) for i,r in enumerate(records,1)}
     ordering={};occ=[];protected=[m.span() for m in PROTECTED.finditer(manuscript)]
+    ends=sentence_breaks(manuscript)
     def replace(m):
         if any(a<=m.start()<b for a,b in protected):return m[0]
         try:old=expand(m[1])
         except ValueError as exc:issues.append({"offset":m.start(),"issue":str(exc)});return m[0]
         unknown=[k for k in old if str(labels.get(k,"")) not in mapping]
         if unknown:
-            issues.append({"offset":m.start(),"issue":"unresolved citation label","labels":unknown});return m[0]
+            issues.append({"offset":m.start(),"issue":"unresolved citation label","labels":unknown,
+                           "sentence":citation_context(manuscript,m.start(),ends)});return m[0]
         idxs=[mapping[str(labels[k])] for k in old]
         for idx in idxs:ordering.setdefault(idx,len(ordering)+1)
         new="["+compact([ordering[i] for i in idxs])+"]"
-        occ.append({"source_offsets":[m.start(),m.end()],"old":m[0],"new":new,"record_ids":[str(merged[i].get("id",i+1)) for i in idxs]});return new
+        occ.append({"source_offsets":[m.start(),m.end()],"old":m[0],"new":new,
+                    "sentence":citation_context(manuscript,m.start(),ends),
+                    "record_ids":[str(merged[i].get("id",i+1)) for i in idxs]});return new
     heading=REF_HEAD.search(manuscript)
     if heading:
         tail=manuscript[heading.end():];following=NEXT_SECTION.search(tail)
@@ -147,7 +184,8 @@ def reconcile(records,manuscript,labels=None):
     else:
         revised=CITE.sub(replace,manuscript)
     used=[{"number":num,"record":merged[idx]} for idx,num in ordering.items()]
-    return revised,{"cited":used,"uncited":[r for i,r in enumerate(merged) if i not in ordering],"merge_decisions":decisions,"occurrences":occ,"issues":issues}
+    return revised,{"cited":used,"uncited":[r for i,r in enumerate(merged) if i not in ordering],"merge_decisions":decisions,
+                    "occurrences":occ,"metadata_status":[metadata_status(r,issues) for r in merged],"issues":issues}
 
 
 if __name__=="__main__":

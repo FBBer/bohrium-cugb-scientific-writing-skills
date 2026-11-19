@@ -139,14 +139,40 @@ def poppler_pages(path):
         yield float(page.attrib["width"]),float(page.attrib["height"]),lines,[],[]
 
 
+OBJECT=re.compile(r"(?:(?<![A-Za-z])(?P<en>fig(?:ure)?\.?|table)\s*|(?P<zh>[图表])\s*)(?P<num>[SA]?\d+(?:[.-]\d+)*[a-z]?|[IVX]+|[一二三四五六七八九十]+)(?![A-Za-z0-9])",re.I)
+SECTION=re.compile(r"^(?P<num>\d+(?:\.\d+)*)(?:[.)、]|\s)\s*(?=[A-Za-z\u4e00-\u9fff])")
+MENTION_VERB=re.compile(r"^\s*(?:所?[示见]|显示|展示|说明|给出|列出|汇总|中|表明|(?:shows?|illustrates?|presents?|summari[sz]es?|lists?|gives?|demonstrates?|displays?|was|is|reports?)\b)",re.I)
+
 def role(line,normal):
     t=line["text"].strip()
-    if re.match(r"^(figure|fig\.|table|图|表)\s*[\dIVX一二三四]",t,re.I): return "caption"
+    obj=OBJECT.match(t)
+    if obj and not MENTION_VERB.match(t[obj.end():]): return "caption"
     if re.match(r"^(abstract|references|acknowledg(e)?ments|摘要|参考文献)\s*[:：]?$",t,re.I): return "heading"
-    if re.match(r"^\d+(\.\d+)*\s+[A-Za-z\u4e00-\u9fff]",t) and len(t)<95: return "heading_candidate"
+    if SECTION.match(t) and len(t)<95: return "heading_candidate"
     if re.search(r"[=∑∫≥≤≈]",t) and re.search(r"\(\d+[a-z]?\)\s*$",t): return "numbered_equation"
     if any(s["size"]>normal*1.22 for s in line.get("spans",[])) and len(t)<160: return "heading_candidate"
     return "body"
+
+def structure(pages,bookmarks):
+    outline=[];objects={}
+    for page in pages:
+        for line in page["lines"]:
+            t=line["text"].strip()
+            anchor={"line":line["id"],"page":page["page"],"bbox":line["bbox"],"text":t}
+            if line["role"] in {"heading","heading_candidate"}:
+                section=SECTION.match(t)
+                outline.append({**anchor,"basis":"numbering" if section else "named_section" if line["role"]=="heading" else "typography",
+                                "number":section["num"] if section else None,"level":1+section["num"].count(".") if section else None})
+            for m in OBJECT.finditer(t):
+                tag=(m["en"] or m["zh"]).lower()
+                kind="table" if tag.startswith("tab") or tag=="表" else "figure"
+                key=(kind,m["num"].upper())
+                item=objects.setdefault(key,{"kind":kind,"number":key[1],"captions":[],"mentions":[]})
+                field="captions" if m.start()==0 and line["role"]=="caption" else "mentions"
+                item[field].append({**anchor,"label":m[0]})
+    for item in objects.values():
+        item["first_mention"]=next(iter(item["mentions"]),None)
+    return {"headings":outline,"pdf_bookmarks":bookmarks,"objects":list(objects.values())}
 
 
 def run(path,dest,language):
@@ -217,6 +243,8 @@ def run(path,dest,language):
                 if a.get("needs_review"):
                     result["issues"].append({"anchor":a["id"],"reason":"low-confidence OCR; check page crop"})
                 text.append("["+a["id"]+"] "+a["text"])
+        bookmarks=[{"level":row[0],"text":row[1],"page":row[2]} for row in doc.get_toc() if row[2]>0] if doc else []
+        result["structure"]=structure(result["pages"],bookmarks)
         if result["issues"]: result["status"]="partial"
         write(dest,result)
         atomic_text(dest.with_suffix(".txt"),"\n".join(text)+"\n")

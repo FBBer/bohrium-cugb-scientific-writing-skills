@@ -31,7 +31,7 @@ sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON
 python3 "$S/scripts/graph.py" /app/work/sources.json /app/work/graph-plan.json /app/output
 ```
 
-每个有依据的查询同时生成可编辑 SVG。节点标签来自源数据，箭头从主体指向客体，关系名称在箭头上，适用条件在箭头下。可用 PyMuPDF 时一并导出印刷版 PDF 和 PNG 预览。原始关系保存在 graph.json，绘图代码位于 scripts/diagram.py。中文稿在图中沿用中文实体和关系标签，分组标题直接写该组回答的问题。
+每个有依据的查询同时生成可编辑 SVG。实体类型用能清楚区分的蓝、绿、橙等底色表示，文字和轮廓用深色。节点标签来自源数据，箭头从主体指向客体，关系名称在箭头上，适用条件在箭头下。可用 PyMuPDF 时一并导出印刷版 PDF 和 PNG 预览。增量合并时，出处还保留案例标识与文本版本指纹；同一路径同一行的修订分开定位。原始关系保存在 graph.json，绘图代码位于 scripts/diagram.py。中文稿在图中沿用中文实体和关系标签，分组标题直接写该组回答的问题。
 
 ## 交付与复核
 

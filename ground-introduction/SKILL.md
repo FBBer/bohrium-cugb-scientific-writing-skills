@@ -33,6 +33,8 @@ python3 "$S/scripts/compose.py" introduction /app/work/sources.json /app/work/in
 
 在跨文献比较或参数归属句中，为每一对研究主体和条件分别给出 bindings。每项用 id、quote、subject_in_source、condition_in_source 记录同一来源子句里的两个原文片段；把该引文也列入本句 evidence。脚本逐对检查锚点及两个片段能否同时回指该子句。正文翻译过的名称、指代和因果关系仍需逐句对应。
 
+每项研究贡献对应具体工作、适用条件与原文位置，逐行记录在 contribution-evidence.tsv。
+
 ## 交付与复核
 
 将每个研究空白连回前文比较，将每个贡献连回本文的方法、结果或图表。输出真正可独立阅读的引言和相关工作正文、比较矩阵、论断—引文对应表及未决信息。表中的技术说明留给核验者，正文保持连贯。
