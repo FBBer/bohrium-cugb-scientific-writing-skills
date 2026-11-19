@@ -7,6 +7,7 @@ from casework import atomic_text
 NS="http://www.w3.org/2000/svg"
 ET.register_namespace("",NS)
 FONT="Noto Sans CJK SC,Source Han Sans SC,PingFang SC,Microsoft YaHei,Arial,sans-serif"
+INK="#000000"
 COLORS={
     "method":"#86c4b8", "task":"#92b8e2", "metric":"#edb576",
     "data":"#a9c88b", "finding":"#c5a9d8", "author":"#e3a49a",
@@ -25,8 +26,8 @@ def wrap(s,n):
         if blank>j//2:j=blank
         lines.append(text[:j].strip());text=text[j:].strip()
     return lines+[text]
-def label(root,x,y,lines,*,size=16,anchor="middle",color="#243c49",bold=False):
-    a=element(root,"text",{"x":x,"y":y,"font-size":size,"font-family":FONT,"text-anchor":anchor,"fill":color,"font-weight":600 if bold else 400})
+def label(root,x,y,lines,*,size=16,anchor="middle",bold=False):
+    a=element(root,"text",{"x":x,"y":y,"font-size":size,"font-family":FONT,"text-anchor":anchor,"fill":INK,"font-weight":600 if bold else 400})
     for i,s in enumerate(lines):
         t=element(a,"tspan",{"x":x,"dy":0 if i==0 else size*1.28});t.text=s
 def render(graph,answers,out):
@@ -58,14 +59,14 @@ def render(graph,answers,out):
                 element(g,"title",{}).text=" | ".join([e["scope"]]+[r["quote"] for r in e["evidence"]])
                 for x,n,lines in ((13,src,a),(495,tgt,b)):
                     box_h=max(48,len(lines)*20+16)
-                    element(g,"rect",{"x":x,"y":center-box_h/2,"width":198,"height":box_h,"rx":6,"fill":COLORS.get(n["type"].casefold(),"#afc0ca"),"stroke":"#566e78","stroke-width":1})
+                    element(g,"rect",{"x":x,"y":center-box_h/2,"width":198,"height":box_h,"rx":6,"fill":COLORS.get(n["type"].casefold(),"#afc0ca"),"stroke":INK,"stroke-width":1})
                     label(g,x+99,center-(len(lines)-1)*10+5,lines,size=16,bold=True)
-                attrs={"x1":215,"x2":485,"y1":center,"y2":center,"stroke":"#395967","stroke-width":2}
+                attrs={"x1":215,"x2":485,"y1":center,"y2":center,"stroke":INK,"stroke-width":2}
                 if e["strength"]!="direct":attrs["stroke-dasharray"]="5 4"
                 element(g,"line",attrs)
-                element(g,"path",{"d":f"M 479 {center-5} L 491 {center} L 479 {center+5} Z","fill":"#395967"})
+                element(g,"path",{"d":f"M 479 {center-5} L 491 {center} L 479 {center+5} Z","fill":INK})
                 label(g,352,center-8-(len(rel)-1)*18,rel,size=15)
-                label(g,352,center+19,scope,size=13,color="#506a73")
+                label(g,352,center+19,scope,size=13)
             name=f"query-{qid:02d}-{offset//6+1:02d}"
             svg=Path(out)/(name+".svg");svg.parent.mkdir(parents=True,exist_ok=True)
             atomic_text(svg,ET.tostring(root,encoding="unicode"))
