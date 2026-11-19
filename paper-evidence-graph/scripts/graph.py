@@ -14,7 +14,7 @@ def stable(prefix,value):
 def relation_mentions(edge, subject, target):
     """Match a plainly worded relation between these named endpoints in one clause."""
     def choices(terms):
-        return "(?:" + "|".join(re.escape(t) for t in sorted(terms, key=len, reverse=True) if t) + ")"
+        return "(?:" + "|".join(re.escape(t) for t in sorted(terms, key=lambda t: (-len(t), t)) if t) + ")"
 
     def names(node):
         return choices({node["label"], *node.get("aliases", [])})
@@ -34,13 +34,43 @@ def relation_mentions(edge, subject, target):
     return re.compile(
         r"(?:^|(?<=[.,;!?，。；！？])|\b(?:and|but|whereas)\s+|但是|然而|但)\s*"
         r"(?:(?:the|an?|this|that)\s+|该|此)?" + names(subject) +
-        r"\s*(?:(?:was|were|is|are|do|did|does|has|have|had)\s+)?"
-        r"(?P<neg>(?:(?:was|were|is|are|do|did|does|has|have|had)n['’]t|not|never)\s+"
-        r"|并没有|并未|没有|并非|并不|未曾|从未|未|不)?"
-        r"(?:been\s+|被)?(?P<verb>" + choices(phrases) + r")"
+        r"\s*(?P<qualifier>(?:(?!\b(?:and|but|whereas)\b|但是|然而|但)[^.,;!?，。；！？]){0,100}?)"
+        r"(?P<verb>" + choices(phrases) + r")"
         r"\s*(?:(?:the|an?|this|that)\s+|该|此)?" + names(target) + r"(?![A-Za-z0-9_])",
         re.IGNORECASE,
     )
+
+
+def qualified_polarity(phrase):
+    """Distinguish an observed relation from a denial or a statement of possibility."""
+    phrase = phrase.strip().casefold().replace("’", "'")
+    if re.search(r"[\u3400-\u9fff]", phrase):
+        if re.search(r"可能|也许|或许|似乎|未必|不一定|不无|不能排除|难以|据称|很少", phrase):
+            return "uncertain"
+        phrase = re.sub(r"不仅|不但|不只", "", phrase)
+        tokens = re.findall(r"并没有|并未|并非|并不|未曾|从未|没有|未|不|实际上|实际|确实|曾经|曾|被|直接", phrase)
+        if "".join(tokens) != phrase:
+            return "needs_review"
+        negatives = sum(t in {"并没有","并未","并非","并不","未曾","从未","没有","未","不"} for t in tokens)
+    else:
+        phrase = re.sub(r"n't\b", " not", phrase)
+        phrase = re.sub(r"\bnot\s+(?:only|just|merely)\b", "", phrase)
+        if re.search(r"\b(?:may|might|can|could|would|should|possibly|probably|likely|unlikely|possible|impossible|"
+                     r"apparently|reportedly|allegedly|rarely|hardly|perhaps|seems?|seemed|potentially)\b"
+                     r"|\bnot\s+(?:always|necessarily|fully|consistently)\b", phrase):
+            return "uncertain"
+        tokens = phrase.split()
+        auxiliaries = {"is","are","was","were","be","been","being","do","does","did","have","has","had"}
+        neutral = {"actually","really","also","only","just","merely","previously","recently","directly",
+                   "indeed","explicitly","successfully","experimentally","ever",
+                   "measurably","detectably","significantly","statistically","materially"}
+        allowed = auxiliaries | neutral | {"not", "never"}
+        if any(t not in allowed for t in tokens):
+            return "needs_review"
+        negatives = sum(t in {"not","never"} for t in tokens)
+    if negatives > 1:
+        return "needs_review"
+    return "negative" if negatives else "positive"
 
 
 def check_relation_polarity(edges, nodes, sources, issues):
@@ -60,13 +90,13 @@ def check_relation_polarity(edges, nodes, sources, issues):
             passage = sources.get(ref["id"], quote)
             excerpts = [m.span() for m in re.finditer(re.escape(quote), passage)]
             signs = {
-                "negative" if m.group("neg") else "positive"
+                qualified_polarity(m.group("qualifier"))
                 for m in pattern.finditer(passage)
                 if any(lo <= m.start("verb") and m.end("verb") <= hi for lo, hi in excerpts)
             }
-            if len(signs) == 1 and edge["polarity"] not in signs:
-                issues.append({"edge":edge["predicate"], "evidence":ref,
-                               "issues":["explicit source polarity conflicts with this relation"]})
+            if signs and signs != {edge["polarity"]}:
+                issues.append({"edge":edge["predicate"], "evidence":ref, "source_readings":sorted(signs),
+                               "issues":["this passage does not establish the stated direct relation"]})
             else:
                 evidence.append(ref)
         if evidence:
