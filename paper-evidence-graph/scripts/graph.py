@@ -32,8 +32,7 @@ def relation_mentions(edge, subject, target):
             if head.casefold() in forms.split():
                 phrases.update((word + " " + rest).strip() for word in forms.split())
     return re.compile(
-        r"(?:^|(?<=[.,;!?，。；！？])|\b(?:and|but|whereas)\s+|但是|然而|但)\s*"
-        r"(?:(?:the|an?|this|that)\s+|该|此)?" + names(subject) +
+        r"(?<![A-Za-z0-9_])(?P<subject>" + names(subject) + r")(?![A-Za-z0-9_])"
         r"\s*(?P<qualifier>(?:(?!\b(?:and|but|whereas)\b|但是|然而|但)[^.,;!?，。；！？]){0,100}?)"
         r"(?P<verb>" + choices(phrases) + r")"
         r"\s*(?:(?:the|an?|this|that)\s+|该|此)?" + names(target) + r"(?![A-Za-z0-9_])",
@@ -73,6 +72,17 @@ def qualified_polarity(phrase):
     return "negative" if negatives else "positive"
 
 
+def passage_polarity(passage, match):
+    lead = re.split(r"[.!?;，。；！？,]|\b(?:and|but|whereas)\b|但是|然而|但",
+                    passage[:match.start("subject")], flags=re.I)[-1]
+    if re.search(r"\b(?:if|whether|hypothes\w*|assum\w*|possibly|perhaps)\b"
+                 r"|\bno\s+(?:reliable\s+)?evidence\b"
+                 r"|\bnot\s+(?:yet\s+)?(?:shown|established|demonstrated|clear|known|certain)\b"
+                 r"|如果|假设|是否|尚未证实|不能确认|无证据|没有证据|猜测", lead, re.I):
+        return "uncertain"
+    return qualified_polarity(match.group("qualifier"))
+
+
 def check_relation_polarity(edges, nodes, sources, issues):
     """Keep compatible evidence, including evidence imported from older graph files."""
     retained = []
@@ -90,7 +100,7 @@ def check_relation_polarity(edges, nodes, sources, issues):
             passage = sources.get(ref["id"], quote)
             excerpts = [m.span() for m in re.finditer(re.escape(quote), passage)]
             signs = {
-                qualified_polarity(m.group("qualifier"))
+                passage_polarity(passage, m)
                 for m in pattern.finditer(passage)
                 if any(lo <= m.start("verb") and m.end("verb") <= hi for lo, hi in excerpts)
             }
