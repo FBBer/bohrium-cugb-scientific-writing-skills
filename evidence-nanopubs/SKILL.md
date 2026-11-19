@@ -21,7 +21,7 @@ sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON
 
 ## 执行方法
 
-claims.json 含 claims 数组，单项字段为 id、subject、predicate、object、statement、scope、polarity（positive/negative/uncertain）、evidence_type（direct/inference/reported-by-others）以及 evidence=[{"id":"S","quote":"最小充分原文"}]。推断还需 reason，保留替代解释。source_modality 可填引文内出现的原词，如“可能”，claim_strength 可选 reported、tentative 或 inferred。每个断言保留来源的语气；同一引文若另有带限定的子句，缩小引文范围，或在 modality_context 中明确该词修饰的对象。若材料给出出处，papers 按索引中 source 的完整值建键，记录 title、identifier、creator、date、hasVersion。publication 仅填写实际知道的本次产物作者、时间、版本或许可，论文作者属于论文来源。
+claims.json 含 claims 数组，单项字段为 id、subject、predicate、object、statement、scope、polarity（positive/negative/uncertain）、evidence_type（direct/inference/reported-by-others）以及 evidence=[{"id":"S","quote":"最小充分原文"}]。推断还需 reason，保留替代解释。source_modality 可填引文内出现的原词，如“可能”，claim_strength 可选 reported、tentative 或 inferred。比较性断言把两个对象和方向一并回指原句。每个断言保留来源的语气；同一引文若另有带限定的子句，缩小引文范围，或在 modality_context 中明确该词修饰的对象。若材料给出出处，papers 按索引中 source 的完整值建键，记录 title、identifier、creator、date、hasVersion。publication 仅填写实际知道的本次产物作者、时间、版本或许可，论文作者属于论文来源。
 
 先用相邻上下文确定谁在什么条件下做了什么测量。证据跨度可跨两处，各写一个定位，另保留完整上下文；不能只引“显著”二字。结果缺少单位或方向时降低确定性。互相冲突的论文分别建断言，各保留实验范围；无法建证据的条目写入待核验清单。
 

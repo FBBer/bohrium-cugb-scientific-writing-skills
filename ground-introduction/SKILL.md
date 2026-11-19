@@ -35,6 +35,8 @@ python3 "$S/scripts/compose.py" introduction /app/work/sources.json /app/work/in
 
 每项研究贡献对应具体工作、适用条件与原文位置，逐行记录在 contribution-evidence.tsv。
 
+派生数值使用 derivation 记录计算。operation 可取 sum、difference、mean、ratio、percent_of 或 percent_change。inputs 依次列两个带原文锚点 id、数值 value 和单位 unit 的数，变化百分比按（新值−基线）/基线计算。复杂推导随稿给出公式和原始数据，另行复算。
+
 ## 交付与复核
 
 将每个研究空白连回前文比较，将每个贡献连回本文的方法、结果或图表。输出真正可独立阅读的引言和相关工作正文、比较矩阵、论断—引文对应表及未决信息。表中的技术说明留给核验者，正文保持连贯。

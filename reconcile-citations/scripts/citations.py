@@ -110,13 +110,17 @@ NEXT_SECTION=re.compile(r"(?im)^(?:#{1,6}\s+\S|\\(?:section|chapter)\*?\{|(?:app
 REF_ENTRY=re.compile(r"(?m)^[ \t]*(?:\[(\d+)\]|(\d+)[.)、])[ \t]*(.*(?:\n(?![ \t]*(?:\[\d+\]|\d+[.)、]))[^\n]+)*)")
 
 SENTENCE_END=re.compile(r"[。！？!?]+|(?<!\d)\.(?=\s|$)|(?<=\d)\.(?=\s+[A-Z]|$)|\n[ \t]*\n")
+ABBREVIATION=re.compile(r"\b(?:et al|e\.g|i\.e|Fig|Eq|Dr|Prof|Mr|Mrs|Ms|vs|cf|[A-Z])\Z")
+BEFORE_QUANTITY=re.compile(r"\b(?:approx|ca|figs?|eqs?|nos?|secs?|chaps?|pp?|refs?|vols?)\Z",re.I)
 
 def sentence_breaks(text):
     breaks=[]
     for match in SENTENCE_END.finditer(text):
         prior=text[max(0,match.start()-12):match.start()]
-        if match[0]=="." and re.search(r"\b(?:et al|e\.g|i\.e|Fig|Eq|Dr|Prof|[A-Z])\Z",prior):
-            continue
+        if match[0]==".":
+            following=text[match.end():match.end()+15].lstrip()
+            if ABBREVIATION.search(prior) or (BEFORE_QUANTITY.search(prior) and re.match(r"[([]?\s*[+-]?\d",following)):
+                continue
         breaks.append(match.end())
     return breaks
 

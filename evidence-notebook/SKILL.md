@@ -31,6 +31,8 @@ python3 "$S/scripts/compose.py" notes /app/work/sources.json /app/work/notes-pla
 
 在跨文献比较或参数归属句中，为每一对研究主体和条件分别给出 bindings。每项用 id、quote、subject_in_source、condition_in_source 记录同一来源子句里的两个原文片段；把该引文也列入本句 evidence。脚本逐对检查锚点及两个片段能否同时回指该子句。正文翻译过的名称、指代和因果关系仍需逐句对应。
 
+派生数值使用 derivation 记录计算。operation 可取 sum、difference、mean、ratio、percent_of 或 percent_change。inputs 依次列两个带原文锚点 id、数值 value 和单位 unit 的数，变化百分比按（新值−基线）/基线计算。复杂推导随稿给出公式和原始数据，另行复算。
+
 ## 交付与复核
 
 检查来源映射中的每一条引文，重点检查主要发现、方法边界以及结论可能失效的条件。paper-cards.json 按论文列出原文事实、解释与局限。作者的解释用 interpretation 角色；读者推断用 inference 状态，并列理由及所据原句。要比较两篇论文，在计划的 comparisons 中填写 left 和 right（两个笔记 ID）、axis、comparability（comparable、conditional 或 not_comparable）和 reason，写清对象、条件、指标或分辨率的差别。交付可读笔记、论文卡片、主题索引和主张溯源表，并在 case 的字段中给出真实卡片和未决项。

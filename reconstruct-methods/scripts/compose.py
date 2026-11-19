@@ -2,10 +2,11 @@
 import argparse
 from collections import defaultdict
 import csv
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 import io
 from pathlib import Path
 import re
+import unicodedata
 from casework import read, write, atomic_text, check_evidence
 
 ROLES={
@@ -19,6 +20,63 @@ def quantities(text):
 def absent_measurements(sentence,source):
     known={(value,unit) for value,unit,_ in quantities(source)}
     return [raw for value,unit,raw in quantities(sentence) if (value,unit) not in known]
+
+def condition_substitution(body,condition,evidence):
+    if not isinstance(condition,str) or not condition.strip():
+        return None
+    def normalized(value):
+        return " ".join(unicodedata.normalize("NFKC",value).casefold().split())
+    sentence=normalized(body);condition=normalized(condition)
+    quotes=[normalized(e.get("quote","")) for e in evidence]
+    if condition not in sentence or any(condition in quote for quote in quotes):
+        return None
+    prefix=sentence.partition(condition)[0]
+    suffix=sentence.partition(condition)[2].strip(" .,;:，。；：")
+    if len(prefix)<8 or not re.search(r"(?:\b(?:in|on|at|under|during|with|without|from)\s+(?:(?:the|a|an)\s+)?|在|处于|位于)$",prefix):
+        return None
+    for quote in quotes:
+        if prefix in quote:
+            remaining=quote.partition(prefix)[2].strip(" .,;:，。；：")
+            if remaining and (not suffix or suffix in remaining):
+                return {"issue":"stated condition substitutes a different source phrase",
+                        "stated_condition":condition,"matching_source":quote}
+    return None
+
+def derived_measurement(written,evidence,calculation):
+    """Verify a two-input derived measurement using quantities in the cited source fragments."""
+    if not isinstance(calculation,dict) or not isinstance(calculation.get("inputs"),list):
+        return False
+    inputs=calculation["inputs"]
+    target=quantities(written)
+    if len(inputs)!=2 or len(target)!=1:
+        return False
+    measured=[]
+    for term in inputs:
+        if not isinstance(term,dict) or "value" not in term or "unit" not in term or not term.get("id"):
+            return False
+        try:
+            value=Decimal(str(term["value"]).replace("−","-"))
+        except DecimalException:
+            return False
+        unit=str(term["unit"]).strip().replace("µ","μ")
+        available={pair[:2] for e in evidence if e.get("id")==term["id"] for pair in quantities(e.get("quote",""))}
+        if (value,unit) not in available:return False
+        measured.append((value,unit))
+    (left,u),(right,v)=measured
+    if u!=v:return False
+    operation=calculation.get("operation")
+    try:
+        if operation=="sum":number=left+right
+        elif operation=="difference":number=left-right
+        elif operation=="mean":number=(left+right)/2
+        elif operation=="ratio":number=left/right;u=""
+        elif operation=="percent_of":number=100*left/right;u="%"
+        elif operation=="percent_change":number=100*(left-right)/right;u="%"
+        else:return False
+        expected,written_unit,_=target[0]
+        return u==written_unit and number.quantize(Decimal(1).scaleb(expected.as_tuple().exponent))==expected
+    except (DecimalException,ZeroDivisionError):
+        return False
 
 NO_DIMENSION=re.compile(r"\b(?:dimensionless|unitless)\b|\b(?:has|have|carries|takes) no (?:physical )?units?\b|无(?:物理)?量纲|无单位",re.I)
 NEGATED_DIMENSION=re.compile(r"\b(?:not|never|neither)\s+(?:an?\s+)?(?:dimensionless|unitless)\b|(?:非|不是|并非|并非为|并非是)无(?:物理)?量纲|(?:未|没有)(?:记录|注明|报告|给出|说明)(?:其)?单位|无单位(?:信息|记录|说明|标注)",re.I)
@@ -112,11 +170,14 @@ def render(mode, index, plan, output):
                 for err in check_evidence(ev,index["sources"]): report["issues"].append({"claim":key,"issue":err})
                 report["evidence_checks"]+=len(ev)
                 joined=" ".join(e.get("quote","") for e in ev)
+                if state=="supported":
+                    changed_condition=condition_substitution(body,row.get("condition"),ev)
+                    if changed_condition:report["issues"].append({"claim":key,**changed_condition})
                 if (mode=="methods" and kind=="parameter" and state=="supported" and explicit_dimensionless(body)
                         and (NEGATED_DIMENSION.search(joined) or not (explicit_dimensionless(joined) or supported_cancellation(row.get("unit_derivation"),joined)))):
                     report["issues"].append({"claim":key,"issue":"unit assertion needs a source or dimensional derivation"})
                 for num in absent_measurements(re.sub(r"\[[^\]]+\]","",body),joined):
-                    if state not in {"unreported","uncertain"} and not row.get("derivation"):
+                    if not derived_measurement(num,ev,row.get("derivation")):
                         report["issues"].append({"claim":key,"issue":"number needs source or derivation","value":num})
                 row_issues=[x for x in report["issues"] if x.get("claim")==key]
                 if row_issues:
@@ -128,8 +189,8 @@ def render(mode, index, plan, output):
                     if src:
                         used.add(src["source"]);anchors[ref["id"]]=(src["source"],src["location"])
                         lookup.append([key,title,kind,state,src["source"],src["location"],ref["quote"],row.get("condition","")])
-                for word in row.get("keywords",[]): keywords[word.casefold()].append(key)
                 if body is None:continue
+                for word in row.get("keywords",[]): keywords[word.casefold()].append(key)
                 if mode=="notes":
                     refs=defaultdict(list)
                     for e in ev:
@@ -178,8 +239,12 @@ def render(mode, index, plan, output):
             measured=value+(" "+unit if unit.casefold() not in UNSPECIFIED_UNITS|{"1","dimensionless","unitless","无量纲","无单位"} and unit not in value else "")
             quotes=" ".join(e.get("quote","") for e in ev)
             match=(not absent_measurements(measured,quotes) if quantities(measured) else bool(value) and value in quotes)
-            if state in {"reported","conflict"} and r.get("value") is not None and (not ev or not match) and not r.get("derivation"):
-                report["issues"].append({"parameter":r.get("name"),"issue":"value absent from primary evidence"})
+            if unit_issue and len(quantities(value))==1:
+                match=any(number==quantities(value)[0][0] for number,_,_ in quantities(quotes))
+            if state in {"reported","conflict"} and r.get("value") is not None and (not ev or not match) and not derived_measurement(measured,ev,r.get("derivation")):
+                report["issues"].append({"parameter":r.get("name"),"candidate":value,"issue":"value absent from primary evidence"})
+                r["value"]=None
+                r["value_status"]="unsupported"
             if state=="conflict" and (len(ev)<2 or not r.get("resolution")):
                 report["issues"].append({"parameter":r.get("name"),"issue":"conflict needs alternatives and decision"})
             audited_params.append(r)

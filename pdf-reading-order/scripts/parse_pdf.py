@@ -141,7 +141,7 @@ def poppler_pages(path):
 
 OBJECT=re.compile(r"(?:(?<![A-Za-z])(?P<en>fig(?:ure)?\.?|table)\s*|(?P<zh>[图表])\s*)(?P<num>[SA]?\d+(?:[.-]\d+)*[a-z]?|[IVX]+|[一二三四五六七八九十]+)(?![A-Za-z0-9])",re.I)
 SECTION=re.compile(r"^(?P<num>\d+(?:\.\d+)*)(?:[.)、]|\s)\s*(?=[A-Za-z\u4e00-\u9fff])")
-MENTION_VERB=re.compile(r"^\s*(?:所?[示见]|显示|展示|说明|给出|列出|汇总|中|表明|(?:shows?|illustrates?|presents?|summari[sz]es?|lists?|gives?|demonstrates?|displays?|was|is|reports?)\b)",re.I)
+MENTION_VERB=re.compile(r"^\s*(?:所?[示见]|显示|展示|说明|给出|列出|汇总|比较|对比|描绘|描绘了|绘制|表明|中|(?:shows?|compares?|contrasts?|depicts?|represents?|plots?|outlines?|contains?|illustrates?|presents?|summari[sz]es?|lists?|gives?|demonstrates?|displays?|was|is|reports?|provides?|identifies?|reveals?|indicates?)\b)",re.I)
 
 def role(line,normal):
     t=line["text"].strip()
@@ -152,6 +152,22 @@ def role(line,normal):
     if re.search(r"[=∑∫≥≤≈]",t) and re.search(r"\(\d+[a-z]?\)\s*$",t): return "numbered_equation"
     if any(s["size"]>normal*1.22 for s in line.get("spans",[])) and len(t)<160: return "heading_candidate"
     return "body"
+
+def object_regions(page,box,kind):
+    width,height=page["size"]
+    areas=page["images"] if kind=="figure" else [t["bbox"] for t in page["tables"] if "bbox" in t]
+    candidates=[]
+    for i,region in enumerate(areas,1):
+        x0,y0,x1,y1=region
+        if (x1-x0)*(y1-y0)>.88*width*height:continue
+        overlap=max(0,min(box[2],x1)-max(box[0],x0))
+        if overlap<.35*min(max(1,box[2]-box[0]),max(1,x1-x0)):continue
+        gap=max(0,box[1]-y1,y0-box[3])
+        if gap>min(85,.13*height):continue
+        candidates.append({"page":page["page"],"index":i,"bbox":region,"distance_pt":round(gap,2)})
+    candidates.sort(key=lambda r:r["distance_pt"])
+    chosen=(candidates[0] if candidates and (len(candidates)==1 or candidates[1]["distance_pt"]-candidates[0]["distance_pt"]>=12) else None)
+    return {"matched":chosen,"candidates":candidates,"basis":"caption geometry"}
 
 def structure(pages,bookmarks):
     outline=[];objects={}
@@ -169,7 +185,9 @@ def structure(pages,bookmarks):
                 key=(kind,m["num"].upper())
                 item=objects.setdefault(key,{"kind":kind,"number":key[1],"captions":[],"mentions":[]})
                 field="captions" if m.start()==0 and line["role"]=="caption" else "mentions"
-                item[field].append({**anchor,"label":m[0]})
+                found={**anchor,"label":m[0]}
+                if field=="captions":found["regions"]=object_regions(page,line["bbox"],kind)
+                item[field].append(found)
     for item in objects.values():
         item["first_mention"]=next(iter(item["mentions"]),None)
     return {"headings":outline,"pdf_bookmarks":bookmarks,"objects":list(objects.values())}
@@ -237,6 +255,7 @@ def run(path,dest,language):
                     central.append(a)
             ordered=band_order(central,p["size"][0])
             p["marginalia"]=[a for a in p["lines"] if a["role"].startswith("running_")]
+            for i,a in enumerate(p["marginalia"],1):a["id"]=f'p{p["page"]}:m{i}'
             p["lines"]=ordered
             for i,a in enumerate(ordered,1):
                 a["id"]=f'p{p["page"]}:l{i}'

@@ -18,7 +18,20 @@ def digest(obj):
     return hashlib.sha256(json.dumps(obj,sort_keys=True,ensure_ascii=False,separators=(",",":")).encode()).hexdigest()[:24]
 def uri(name): return "<urn:scholar:"+name+">"
 
-MODAL_TERMS=re.compile(r"\b(?:may|might|could|possibly|probably|suggest(?:s|ed)?|consistent with|cannot rule out|cannot exclude)\b|可能|提示|推测|无法排除|不能排除|与.{1,12}相符",re.I)
+MODAL_TERMS=re.compile(r"\b(?:may|might|could|possibly|probably|(?:un)?likely(?:\s+to)?|suggest(?:s|ed)?|consistent with|cannot rule out|cannot exclude)\b|可能|或可|倾向于|提示|推测|无法排除|不能排除|与.{1,12}相符",re.I)
+COMPARATIVES=re.compile(r"\b(higher|greater|more|larger|lower|less|smaller)\b|(高于|大于|多于|低于|小于|少于)",re.I)
+INCREASING={"higher","greater","more","larger","高于","大于","多于"}
+
+def oriented_comparison(text,subject,other):
+    """Read the direction only when the same two objects bracket an explicit comparator."""
+    plain=text.casefold();a=plain.find(subject.casefold());b=plain.find(other.casefold())
+    if min(a,b)<0 or a==b:return None
+    start,end=(a+len(subject),b) if a<b else (b+len(other),a)
+    clause=plain[start:end]
+    if re.search(r"[;；!?。！？]|\b(?:not|never|without)\b|[未不]",clause):return None
+    signs={1 if m[0] in INCREASING else -1 for m in COMPARATIVES.finditer(clause)}
+    if len(signs)==1:return signs.pop()*(1 if a<b else -1)
+    return None
 
 def source_cues(text):
     for match in MODAL_TERMS.finditer(text):
@@ -43,10 +56,10 @@ def modality(item,evidence):
         return None,"unknown claim strength"
     if item.get("evidence_type")=="inference":
         strength="inferred"
-    elif strength=="reported" and cues and not item.get("modality_context"):
+    elif strength=="reported" and (cues or item.get("polarity")=="uncertain") and not item.get("modality_context"):
         strength="tentative"
     if not strength:
-        strength="inferred" if item.get("evidence_type")=="inference" else "tentative" if cues else "reported"
+        strength="tentative" if cues or item.get("polarity")=="uncertain" else "reported"
     summary={"claim_strength":strength,"source_cues":cues}
     if item.get("claim_strength") and item["claim_strength"]!=strength:
         summary["strength_adjustment"]={"submitted":item["claim_strength"],"applied":strength}
@@ -65,6 +78,11 @@ def export(index,record,out):
         if item.get("polarity") not in {"positive","negative","uncertain"}: errors.append("unknown polarity")
         if not evidence: errors.append("needs a minimal original quotation")
         if item.get("evidence_type")=="inference" and not item.get("reason"): errors.append("missing inferential bridge")
+        if not errors and item["evidence_type"]=="direct":
+            direction=oriented_comparison(item["statement"],item["subject"],item["object"])
+            sources_signs={oriented_comparison(e["quote"],item["subject"],item["object"]) for e in evidence}-{None}
+            if direction and sources_signs=={-direction}:
+                errors.append("comparative direction contradicts the quoted order of the same two entities")
         qualifiers,err=modality(item,evidence)
         if err:errors.append(err)
         if errors:

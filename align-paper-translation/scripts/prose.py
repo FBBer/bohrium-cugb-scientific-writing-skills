@@ -12,7 +12,7 @@ PATTERNS = {
     "citation":r"\[(?:\s*\d+[a-z]?\s*(?:[,，;；–—-]\s*\d+[a-z]?\s*)*)\]|\\(?:cite\w*|ref|eqref)\{[^{}]+\}",
     "quantity":r"(?<![A-Za-z0-9_])(?:[+\-−]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-−]?\d+)?)(?:\s*(?:±|×)\s*[+\-−]?\d+(?:\.\d+)?)?(?:\s*(?:%|‰|°C|°F|dBm|dB|[GMkhdcmunpfμµ]?(?:Hz|Pa|mol|rad|kg|g|m|s|L|K|A|W|V|J|T|F|N)(?:/[kmunμµ]?(?:s|m|L|g)(?:[²³23])?)?)(?![A-Za-z]))?",
 }
-FLAGS={"negative":r"\b(?:not|never|without|neither|nor|no)\b|未|无|不(?:能|会|足|再|存在|表明|显著|显著性)|没有|并非",
+FLAGS={"negative":r"\b(?:not|cannot|never|without|neither|nor|no)\b|\b(?:ca|wo|do|does|did|is|are|was|were|have|has|had|could|would|should)n['’]t\b|未|无|不(?!同|少|仅|论|管|变量|等式|锈钢|确定性)|没有|并非",
        "hedge":r"\b(?:might|may|could|suggest\w*|approximately|potential\w*|consistent with)\b|可能|提示|大约|约为|相符",
        "causal":r"\b(?:caus\w*|led to|resulted in)\b|导致|引起|造成",
        "condition":r"\b(?:only|unless|provided that|if|except|under)\b|仅|只有|如果|若|除非|条件下",
@@ -33,7 +33,12 @@ def protected(text):
     return out
 
 
-def linguistic_flags(old,new):
+CLAUSE_BREAKS=r"\b(?:and|or|but|whereas|while|yet|however|although)\b|[;；]|(?<!\d)[,，](?!\d)|但是|然而|并且|而且|同时|或者|但|而(?=[^且])|并(?!(?:非|未|无|不|没有))"
+
+def split_clauses(text):
+    return [part for part in re.split(CLAUSE_BREAKS,text,flags=re.I) if part.strip(" ,，。.")]
+
+def linguistic_flags(old,new,gloss=None):
     review=[]
     for key,pattern in FLAGS.items():
         if bool(re.search(pattern,old,re.I))!=bool(re.search(pattern,new,re.I)): review.append(key)
@@ -42,6 +47,34 @@ def linguistic_flags(old,new):
         return [key for _,key in found]
     left,right=directions(old),directions(new)
     if len(set(left))>1 and Counter(left)==Counter(right) and left!=right:review.append("direction-to-entity assignment")
+    source_clauses,target_clauses=split_clauses(old),split_clauses(new)
+    original=[bool(re.search(FLAGS["negative"],p,re.I)) for p in source_clauses]
+    revised=[bool(re.search(FLAGS["negative"],p,re.I)) for p in target_clauses]
+    pairs=set()
+    if gloss and min(len(original),len(revised))>1:
+        for term,spec in gloss.items():
+            spec={"target":spec} if isinstance(spec,str) else spec
+            aliases=spec.get("accepted",[])
+            accepted=[spec.get("target"),*([aliases] if isinstance(aliases,str) else aliases)]
+            source_pos=[i for i,p in enumerate(source_clauses) if term_spans(p,term)]
+            target_pos=[i for i,p in enumerate(target_clauses) if any(term_spans(p,a) for a in accepted)]
+            if len(source_pos)==len(target_pos)==1:pairs.add((source_pos[0],target_pos[0]))
+    semantic_swap=any(original[i]!=revised[j] for i,j in pairs)
+    if len(original)>1 and len(original)==len(revised) and sum(original)==sum(revised) and original!=revised:
+        one_to_one=len({i for i,j in pairs})==len({j for i,j in pairs})==len(pairs)
+        known_reorder=(one_to_one and len(pairs)>=len(original)-1 and any(i!=j for i,j in pairs) and not semantic_swap)
+        if not known_reorder:review.append("negation assigned to a different clause")
+    elif semantic_swap:
+        review.append("negation linked to a different glossary entity")
+    def negated_heads(text):
+        return {m[1].casefold() for m in re.finditer(r"\b(?:not|never|cannot|didn['’]t|doesn['’]t|don['’]t)\s+(?:(?:ever|significantly|directly|consistently)\s+)?([a-z]{3,})\b",text,re.I)}
+    if re.search(r"[A-Za-z]",old) and re.search(r"[A-Za-z]",new):
+        lost=negated_heads(old)-negated_heads(new)
+        gained=negated_heads(new)-negated_heads(old)
+        def shared_predicate(words,text):
+            return any(re.search(r"\b"+re.escape(w[:-1] if w.endswith("e") else w)+r"(?:e|es|s|ed|d|ing)?\b",text,re.I) for w in words)
+        if lost and gained and shared_predicate(lost,new) and shared_predicate(gained,old):
+            review.append("different predicate is negated")
     return review
 
 
@@ -108,7 +141,7 @@ def audit(source,draft,mode):
             findings.append({"id":key,"issue":"unresolved placeholder","markers":dict(added_markers)})
         for term,spec in gloss.items():
             findings.extend({"id":key,**result} for result in glossary_issues(old,target,term,spec))
-        review=linguistic_flags(old,target)
+        review=linguistic_flags(old,target,gloss)
         if review: findings.append({"id":key,"issue":"semantic review","categories":review})
         for label,pattern in {"figure":r"(?:\bfig(?:ure)?\.?|图)\s*([0-9]+[a-z]?)",
                               "table":r"(?:\btable|表)\s*([0-9]+[a-z]?)",
