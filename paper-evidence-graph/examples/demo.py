@@ -23,7 +23,7 @@ def done(outcome,ev,uncertainty=(),status="success"):
     if errors: raise SystemExit(str(errors))
     print("Example result:",result/"result.json")
 from graph import export
-s="The aperture mask was used for the glare test."
+s="The aperture mask was used for the glare test on the bench."
 idx=setup({"paper.txt":s});ev=evidence(idx,s)
 plan={"nodes":[{"key":"m","type":"method","label":"aperture mask","scope":"optics","document":"paper.txt","evidence":[ev]},{"key":"t","type":"task","label":"glare test","scope":"optics","document":"paper.txt","evidence":[ev]}],
       "edges":[{"source":"m","target":"t","predicate":"used_for","scope":"bench","polarity":"positive","strength":"direct","evidence":[ev]}],

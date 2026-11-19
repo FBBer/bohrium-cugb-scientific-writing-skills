@@ -9,7 +9,7 @@ description: 抽取可溯源的实体及有向关系，保留有证据的别名�
 
 ## 从本次案例开始
 
-读取 /input/case.json、同目录 task.md 和列出的原始附件。若存在 environment/resources.yaml，按其记录使用当前镜像的工具。先核查原材料能否支持问题，将明确要求的输出字段、类型、语言和文件名记在工作目录。用实际材料内容判断领域。此包不依赖其他参赛目录、网络、密钥或个人绝对路径。
+读取 /input/case.json、同目录 task.md 和列出的原始附件。若存在 environment/resources.yaml，按其记录使用当前镜像的工具。在工作目录记下输出字段、类型、语言、文件名和原材料位置。用实际材料内容判断领域。此包不依赖其他参赛目录、网络、密钥或个人绝对路径。
 
 ```sh
 S=/skills/weekly-skill
@@ -35,11 +35,15 @@ python3 "$S/scripts/graph.py" /app/work/sources.json /app/work/graph-plan.json /
 
 打开 graph.graphml、graph.json、queries.json，检查每条边有两端，每个回答的证据能回指正文。数字相同或名称相似不构成合并依据。空查询标记材料缺乏支持，追加实际问题的人类可读答案以及出现冲突时的并列解释。
 
-先将已完成的真实部分保存到 /app/output，逐轮补齐。将主结果本身写入 /app/output/result.json，保持原 case_id、原 output_contract 的全部字段、类型和层级。原契约禁止额外字段时把审计放在旁文件。明确标记缺材料、原文未报告、证据冲突和工具失败，附已完成范围、证据定位、未决项与实际改动。Office 或图形有要求时同时保留真正可编辑源和渲染预览。最后运行下方契约检查并打开每个必需产物。脚本只查结构，仍需以原文判断主结果。
+把可编辑成果写入 /app/output。正文使用适合目标读者的科研表达，直接给出译文、论证、参数或结论。每个结果沿用原 case_id 和 output_contract 的字段、类型与层级。输出文件名遵循 task.md。来源差异、缺项的具体原因和运行状态写入契约指定字段或单独的审计文件。Office 文档和图形按要求附可编辑源与实物渲染。
 
 ```sh
 python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
 ```
+
+## 独立运行环境
+
+常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 ## 可复用的最小示例
 

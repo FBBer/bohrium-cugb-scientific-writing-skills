@@ -32,7 +32,7 @@ def render(mode, index, plan, output):
     report={"mode":mode,"issues":[],"sections":[],"claims":0,"evidence_checks":0,"unresolved":[]}
     lookup=[]; paragraphs=[]; anchors={}; keywords=defaultdict(list); used=set(); ids=set()
     for section in plan["sections"]:
-        title=section["title"]; paragraphs.append("## "+title); report["sections"].append(title)
+        title=section["title"]; section_text=[]; report["sections"].append(title)
         for group in section.get("paragraphs",[]):
             sentences=[]
             for row in group:
@@ -59,18 +59,25 @@ def render(mode, index, plan, output):
                 for num in absent_measurements(re.sub(r"\[[^\]]+\]","",body),joined):
                     if state not in {"unreported","uncertain"} and not row.get("derivation"):
                         report["issues"].append({"claim":key,"issue":"number needs source or derivation","value":num})
+                row_issues=[x for x in report["issues"] if x.get("claim")==key]
+                if row_issues:
+                    state="needs_review"
+                    report["unresolved"].append({"claim":key,"status":state,"candidate":body,"issues":row_issues})
+                    body=None
                 for ref in ev:
                     src=sources.get(ref.get("id"))
                     if src:
                         used.add(src["source"]);anchors[ref["id"]]=(src["source"],src["location"])
                         lookup.append([key,title,kind,state,src["source"],src["location"],ref["quote"],row.get("condition","")])
                 for word in row.get("keywords",[]): keywords[word.casefold()].append(key)
+                if body is None:continue
                 if mode=="notes":
                     locs=", ".join(sources[e["id"]]["source"]+"#"+sources[e["id"]]["location"] for e in ev if e["id"] in sources)
                     sentences.append(body+(" 〔"+locs+"〕" if locs else ""))
                 else: sentences.append(body)
             if sentences:
-                paragraphs.append(("" if plan.get("language") in {"zh","zh-CN"} else " ").join(sentences))
+                section_text.append(("" if plan.get("language") in {"zh","zh-CN"} else " ").join(sentences))
+        if section_text:paragraphs.extend(["## "+title,*section_text])
     artifacts={"notes":"notes.md","introduction":"introduction.md","methods":"methods.md"}
     atomic_text(output/artifacts[mode],"\n\n".join(paragraphs)+"\n")
     atomic_text(output/"claim-sources.tsv",tabular(["claim","section","role","status","source","location","quote","condition"],lookup))
@@ -91,16 +98,18 @@ def render(mode, index, plan, output):
             measured=value+(" "+unit if unit not in {"","1","none","无量纲","dimensionless","—","-"} and unit not in value else "")
             quotes=" ".join(e.get("quote","") for e in ev)
             match=(not absent_measurements(measured,quotes) if quantities(measured) else bool(value) and value in quotes)
-            if state=="reported" and (not ev or not match) and not r.get("derivation"):
+            if state in {"reported","conflict"} and r.get("value") is not None and (not ev or not match) and not r.get("derivation"):
                 report["issues"].append({"parameter":r.get("name"),"issue":"value absent from primary evidence"})
             if state=="conflict" and (len(ev)<2 or not r.get("resolution")):
                 report["issues"].append({"parameter":r.get("name"),"issue":"conflict needs alternatives and decision"})
         write(output/"parameters.json",params)
         write(output/"reproduction.json",plan.get("reproduction",{}))
-    report["sources_used"]=sorted(used);write(output/"audit.json",report)
+    report["sources_used"]=sorted(used);report["status"]="partial" if report["issues"] else "complete"
+    write(output/"audit.json",report)
     return report
 
 
 if __name__=="__main__":
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument("mode",choices=ROLES);p.add_argument("index");p.add_argument("plan");p.add_argument("out",type=Path)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument("mode",choices=ROLES);p.add_argument("index");p.add_argument("plan");p.add_argument("out",type=Path);p.add_argument("--strict",action="store_true")
     a=p.parse_args();r=render(a.mode,read(a.index),read(a.plan),a.out);print(f"{r['claims']} claims; {len(r['issues'])} review items")
+    if a.strict and r["issues"]:raise SystemExit(1)

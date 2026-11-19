@@ -25,7 +25,7 @@ def done(outcome,ev,uncertainty=(),status="success"):
 from citations import reconcile
 refs=[{"id":"A","title":"Synthetic optics A","DOI":"10.0000/demo-a"},{"id":"A-copy","title":"Synthetic optics A","DOI":"https://doi.org/10.0000/DEMO-A"},{"id":"B","title":"Synthetic optics B","DOI":"10.0000/demo-b"}]
 raw="First [3]. Independently [1,2]. Equation $x[3]$."
-idx=setup({"draft.md":raw});write(inp/"records.json",refs)
+write(inp/"records.json",refs);idx=setup({"draft.md":raw})
 revised,report=reconcile(refs,raw)
 assert revised=="First [1]. Independently [2]. Equation $x[3]$." and len(report["merge_decisions"])==1
 atomic_text(result/"manuscript.md",revised);write(result/"citation-audit.json",report);write(result/"cited.csl.json",[r["record"] for r in report["cited"]])

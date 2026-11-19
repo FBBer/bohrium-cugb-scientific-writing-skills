@@ -33,6 +33,7 @@ def export(index,record,out):
         if errors:
             issues.append({"id":key,"reasons":errors});continue
         payload={k:item[k] for k in ("subject","predicate","object","scope","polarity","evidence_type","statement")}
+        if item.get("reason"):payload["reason"]=item["reason"]
         bindings=sorted((sources[e["id"]]["source"],sources[e["id"]]["location"],e["quote"]) for e in evidence)
         source_editions={source:meta.get(source,{}) for source,_,_ in bindings}
         sid=digest([payload,bindings,source_editions,record.get("publication",{})])

@@ -17,7 +17,9 @@ FLAGS={"negative":r"\b(?:not|never|without|neither|nor|no)\b|未|无|不(?:能|�
        "causal":r"\b(?:caus\w*|led to|resulted in)\b|导致|引起|造成",
        "condition":r"\b(?:only|unless|provided that|if|except|under)\b|仅|只有|如果|若|除非|条件下",
        "increase":r"\b(?:higher|greater|larger|increas\w*|exceed\w*|above|positive(?:ly)?)\b|高于|大于|增加|增大|升高|正相关",
-       "decrease":r"\b(?:lower|smaller|less|decreas\w*|reduc\w*|below|negative(?:ly)?)\b|低于|小于|降低|降低了|减少|下降|负相关"}
+       "decrease":r"\b(?:lower|smaller|less|decreas\w*|reduc\w*|below|negative(?:ly)?)\b|低于|小于|降低|降低了|减少|下降|负相关",
+       "cessation_or_persistence":r"\b(?:stop(?:s|ped|ping)?|ceas\w*|continu\w*|persist\w*|remain(?:s|ed)?)\b|停止|持续|继续|不再|仍然",
+       "negation_scope":r"\b(?:cannot|can not|could not|not)\s+(?:rule out|exclude|fail to|stop|cease|prevent)\b|(?:不能|无法|未能|未|没有|并未)(?:排除|否认|停止|阻止)|并非没有"}
 def protected(text):
     work=unicodedata.normalize("NFC",text)
     out={}
@@ -35,6 +37,11 @@ def linguistic_flags(old,new):
     review=[]
     for key,pattern in FLAGS.items():
         if bool(re.search(pattern,old,re.I))!=bool(re.search(pattern,new,re.I)): review.append(key)
+    def directions(text):
+        found=sorted((m.start(),key) for key in ("increase","decrease") for m in re.finditer(FLAGS[key],text,re.I))
+        return [key for _,key in found]
+    left,right=directions(old),directions(new)
+    if len(set(left))>1 and Counter(left)==Counter(right) and left!=right:review.append("direction-to-entity assignment")
     return review
 
 
@@ -95,6 +102,15 @@ def audit(source,draft,mode):
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("mode",choices=["translate","edit"]);p.add_argument("source");p.add_argument("draft");p.add_argument("outdir",type=Path);p.add_argument("--strict",action="store_true")
     a=p.parse_args(); report, manuscript=audit(read(a.source),read(a.draft),a.mode)
-    write(a.outdir/"audit.json",report);atomic_text(a.outdir/("bilingual.md" if a.mode=="translate" else "revised.md"),manuscript)
+    name="bilingual.md" if a.mode=="translate" else "revised.md"
+    report["status"]="needs_review" if report["findings"] else "checked"
+    write(a.outdir/"audit.json",report)
+    if a.strict and report["findings"]:
+        canonical=a.outdir/name
+        if canonical.is_file():
+            import hashlib
+            canonical.replace(a.outdir/("previous-"+hashlib.sha256(canonical.read_bytes()).hexdigest()[:12]+"-"+name))
+        name="candidate-"+name
+    atomic_text(a.outdir/name,manuscript)
     print(f"{report['segments_received']} segments, {len(report['findings'])} findings")
     if a.strict and report["findings"]: raise SystemExit(1)
