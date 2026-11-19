@@ -23,7 +23,7 @@ sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON
 
 计划含 nodes、edges 和 queries 三个数组。节点形如 {"key":"a","type":"method","label":"原名","scope":"学科/义项","document":"实际文件","aliases":[],"evidence":[{"id":"S","quote":"原文"}]}。关系含 source、target（局部 key）、predicate、scope、polarity（positive/negative/uncertain）、strength（direct/inference/quoted）、evidence。保留人名重名、全称/缩写的文内定义、不同任务下的同名模型。仅在有合并依据且类型兼容时给后出现的节点 same_as 和 merge_reason。以有证据的别名表保留原文拼写。
 
-将共现、作者提出、经过验证、引用他人发现及推断区分开。相反结果保留各自适用条件。对相对关系写清 A 相对谁、指标越大还是越好。新增文献可用 --previous 读取既有 graph.json，以持久节点 ID 指明同一实体；核查已有边和证据未丢失。
+将共现、作者提出、经过验证、引用他人发现及推断区分开。直接关系的肯定或否定须与原句中同一对实体、同一谓词一致。若两篇论文在不同条件下得到相反结果，为每种条件分别保留关系和出处。复杂转述、双重否定和省略主语的句子需结合上下文辨认。对相对关系写清 A 相对谁、指标越大还是越好。新增文献可用 --previous 读取既有 graph.json，以持久节点 ID 指明同一实体；核查已有边和证据未丢失。
 
 从材料写至少三个真正不同的研究问题，覆盖方法和任务、指标或比较、以及未证实的关系。每项如 {"question":"哪个方法在此设置下与基线比较？","where":{"predicate":"compared_with","scope":"实际设定"},"source_type":"method"}。支持 source、target、predicate、scope、strength、polarity 过滤和 source_type/target_type。脚本返回实际命中子图与证据。多跳问题可按中间节点连接两次查询并列出各跳证据。
 

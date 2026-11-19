@@ -4,11 +4,75 @@ import collections
 import hashlib
 import json
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 from casework import read,write,atomic_text,check_evidence
 
 def stable(prefix,value):
     return prefix+hashlib.sha256(json.dumps(value,ensure_ascii=False,sort_keys=True).encode()).hexdigest()[:17]
+
+def relation_mentions(edge, subject, target):
+    """Match a plainly worded relation between these named endpoints in one clause."""
+    def choices(terms):
+        return "(?:" + "|".join(re.escape(t) for t in sorted(terms, key=len, reverse=True) if t) + ")"
+
+    def names(node):
+        return choices({node["label"], *node.get("aliases", [])})
+
+    phrases = {str(edge.get(k) or "").replace("_", " ").strip()
+               for k in ("predicate", "display_predicate")} - {""}
+    if any(re.search(r"\b(?:not|never|without|no)\b|^(?:并未|没有|未|不|非)", p, re.I) for p in phrases):
+        return None
+    verb_forms = ("use uses used", "compare compares compared", "reduce reduces reduced",
+                  "improve improves improved", "increase increases increased", "change changes changed",
+                  "support supports supported", "predict predicts predicted", "evaluate evaluates evaluated")
+    for phrase in tuple(phrases):
+        head, _, rest = phrase.partition(" ")
+        for forms in verb_forms:
+            if head.casefold() in forms.split():
+                phrases.update((word + " " + rest).strip() for word in forms.split())
+    return re.compile(
+        r"(?:^|(?<=[.,;!?，。；！？])|\b(?:and|but|whereas)\s+|但是|然而|但)\s*"
+        r"(?:(?:the|an?|this|that)\s+|该|此)?" + names(subject) +
+        r"\s*(?:(?:was|were|is|are|do|did|does|has|have|had)\s+)?"
+        r"(?P<neg>(?:(?:was|were|is|are|do|did|does|has|have|had)n['’]t|not|never)\s+"
+        r"|并没有|并未|没有|并非|并不|未曾|从未|未|不)?"
+        r"(?:been\s+|被)?(?P<verb>" + choices(phrases) + r")"
+        r"\s*(?:(?:the|an?|this|that)\s+|该|此)?" + names(target) + r"(?![A-Za-z0-9_])",
+        re.IGNORECASE,
+    )
+
+
+def check_relation_polarity(edges, nodes, sources, issues):
+    """Keep compatible evidence, including evidence imported from older graph files."""
+    retained = []
+    for edge in edges:
+        if edge["strength"] != "direct" or edge["polarity"] not in {"positive", "negative"}:
+            retained.append(edge)
+            continue
+        pattern = relation_mentions(edge, nodes[edge["source"]], nodes[edge["target"]])
+        if pattern is None:
+            retained.append(edge)
+            continue
+        evidence = []
+        for ref in edge["evidence"]:
+            quote = ref["quote"]
+            passage = sources.get(ref["id"], quote)
+            excerpts = [m.span() for m in re.finditer(re.escape(quote), passage)]
+            signs = {
+                "negative" if m.group("neg") else "positive"
+                for m in pattern.finditer(passage)
+                if any(lo <= m.start("verb") and m.end("verb") <= hi for lo, hi in excerpts)
+            }
+            if len(signs) == 1 and edge["polarity"] not in signs:
+                issues.append({"edge":edge["predicate"], "evidence":ref,
+                               "issues":["explicit source polarity conflicts with this relation"]})
+            else:
+                evidence.append(ref)
+        if evidence:
+            retained.append({**edge, "evidence":evidence})
+    return retained
+
 
 def dataset(index,plan,previous=None):
     graph=previous or {"nodes":[],"edges":[]}
@@ -45,7 +109,9 @@ def dataset(index,plan,previous=None):
         if err: notes.append({"edge":e.get("predicate"),"issues":err});continue
         sid=stable("e",[a,e["predicate"],b,e["scope"],e["polarity"],e["strength"]])
         edges[sid]={**e,"id":sid,"source":a,"target":b,"evidence":unique(edges.get(sid,{}).get("evidence",[])+ev)}
-    return {"nodes":list(nodes.values()),"edges":list(edges.values()),"issues":notes}, refs
+    texts = {s["id"]: s["text"] for s in index["sources"]}
+    grounded = check_relation_polarity(edges.values(), nodes, texts, notes)
+    return {"nodes":list(nodes.values()),"edges":grounded,"issues":notes}, refs
 
 def unique(rows):
     return list({json.dumps(r,sort_keys=True,ensure_ascii=False):r for r in rows}.values())
@@ -103,7 +169,13 @@ def export(index,plan,out,previous=None):
             ET.SubElement(entry,el("data"),{"key":"details"}).text=json.dumps(item,ensure_ascii=False,sort_keys=True)
     atomic_text(out/"graph.graphml",ET.tostring(root,encoding="unicode")+"\n")
     from diagram import render
-    write(out/"figures.json",render(graph,answers,out/"figures"))
+    manifest = out/"figures.json"
+    old_figures = read(manifest).get("files", []) if manifest.exists() else []
+    figures = render(graph, answers, out/"figures")
+    for name in set(old_figures) - set(figures["files"]):
+        if re.fullmatch(r"query-\d+-\d+\.(?:svg|pdf|png)", name):
+            (out/"figures"/name).unlink(missing_ok=True)
+    write(manifest, figures)
     return graph,answers
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("index");p.add_argument("plan");p.add_argument("out",type=Path);p.add_argument("--previous")
