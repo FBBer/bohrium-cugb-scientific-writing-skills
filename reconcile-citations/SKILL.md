@@ -1,0 +1,46 @@
+---
+name: reconcile-citations
+description: 校验稿件引文与书目、保守去重、按首次出现重排编号并输出可编辑 CSL JSON 和逐处审计。
+---
+
+# 参考文献与引用管理
+
+识别输入书目格式、正文样式、引文种类、目标规范和可用证据。区别参考文献序号、数学下标或区间、图表编号以及标题中的数字。先保存原件，重排始终基于同一版原始稿。
+
+## 从本次案例开始
+
+读取 /input/case.json、同目录 task.md 和列出的原始附件。若存在 environment/resources.yaml，按其记录使用当前镜像的工具。先核查原材料能否支持问题，将明确要求的输出字段、类型、语言和文件名记在工作目录。用实际材料内容判断领域。此包不依赖其他参赛目录、网络、密钥或个人绝对路径。
+
+```sh
+S=/skills/weekly-skill
+mkdir -p /app/work /app/output
+python3 "$S/scripts/casework.py" index --input /input --work /app/work
+```
+
+sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
+
+## 执行方法
+
+脚本接受 CSL JSON、RIS、带百分号标签的 EndNote 文本；BibTeX/BibLaTeX 用 Pandoc 读取。labels 是 {"7":"原始书目键"} 的实际映射；只有原始清单本来从 1 连续编号且顺序一致才可省略。将 Word 正文、脚注、图表题注、附录依阅读顺序提取并记录偏移，然后回写至实际文档；手写简单转换不能替代保留具有域代码的原件。程序会跳过数学、代码和 Markdown 链接。文内数字形式有歧义时，在工作副本先标明哪些位置是引文，审计中保留决定。
+
+规范化 DOI 的前缀和大小写；有标点冲突时与原 DOI 元数据比对。无相同标识符时，只有题名、作者序列、年份和类型吻合才能自动合并。数据库记录与期刊最终版、预印本与最终版、不同年份或双语题名须人工确认，并保留版本关系。核对 DOI、作者顺序、年份、卷期、页码/文章号及更正记录。未能访问权威元数据时标“尚未核验”；题名吻合不足以证明正文结论。
+
+为需要支持的每个论断找最小句段，列支持、部分支持、矛盾、无从判断，附论文定位/原句。综述转述原始结果应注明层级。重复引用映射同一编号；多引范围按目标规范压缩；孤立正文标记、文末未引条目和多余元数据分别报告。著者—年份、上标、期刊 CSL 或 GB/T 等按任务口径排版，需保留原路径和样式版本，可用 Pandoc --citeproc --csl 已提供的样式生成。
+
+```sh
+python3 "$S/scripts/citations.py" /app/work/refs.json /app/work/manuscript.md /app/output --labels /app/work/original-labels.json
+```
+
+## 交付与复核
+
+用首次出现顺序重算一次编号；核对新标签、文末清单、图表与附录，区分遗漏、引文不支持和元数据未核实。保留原键/新编号对照、合并依据、可导入的书目及可编辑修订稿。用案例的字段和要求的目标格式交付。
+
+先将已完成的真实部分保存到 /app/output，逐轮补齐。将主结果本身写入 /app/output/result.json，保持原 case_id、原 output_contract 的全部字段、类型和层级。原契约禁止额外字段时把审计放在旁文件。明确标记缺材料、原文未报告、证据冲突和工具失败，附已完成范围、证据定位、未决项与实际改动。Office 或图形有要求时同时保留真正可编辑源和渲染预览。最后运行下方契约检查并打开每个必需产物。脚本只查结构，仍需以原文判断主结果。
+
+```sh
+python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
+```
+
+## 可复用的最小示例
+
+从本目录运行 `python3 examples/demo.py /tmp/reconcile-citations-example`。示例使用自写的小样本，实际运行结果保存在指定目录，输入和预期现象见 [示例说明](examples/README.md)。发行版本 1.0，运行环境为 Python 3.9 或以上。可在作品仓库相应目录的 Issues 中附匿名化最小复现、实际输出和依赖版本反馈问题。
