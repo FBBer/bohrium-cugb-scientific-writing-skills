@@ -17,7 +17,7 @@ mkdir -p /app/work /app/output
 python3 "$S/scripts/casework.py" index --input /input --work /app/work
 ```
 
-sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
+sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。Excel 实验表按工作表名和单元格定位。数字保留存储值，百分号等格式另列；公式、已有缓存值分别记录，未缓存的公式需要用原工作簿重算。写作时同时引用数值单元格及同一连续数据列的单位表头，可保留原量纲。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
 
 ## 执行方法
 
@@ -25,7 +25,7 @@ settings.py 对 JSON、YAML、CSV、配置和日志列出同名参数的候选�
 
 写有逻辑先后的步骤，各含输入、操作、输出和判定条件。分开说明数据来源与版本、预处理与泄漏控制、样本单位及划分、训练/验证/测试、基线版本和计算预算、评价指标、重复与汇总口径。复现清单只用实际给出的命令/环境，示意命令标明需填项。为每个条件说明失效的具体场景。对无日志证明的步骤区分“拟采用”和“实际执行”。
 
-plan 含 language、sections，分节的 paragraphs 是有序句项数组的数组。每项有 id、role、text、evidence=[{"id":"S","quote":"原文"}]。角色为 procedure、data、split、parameter、evaluation、baseline、environment、repetition、limitation。另给 parameters=[{"name":"参数","value":"实际值","unit":"单位或无量纲","scope":"运行/阶段","status":"reported","evidence":[...]}]；冲突项列两个来源及 resolution，未报告给原因。记录给出参数值但缺单位时，保留数值，将 unit 留空并设 unit_status 为 unreported。“无量纲”须能回指材料中的定义，或在 unit_derivation 逐项写明量纲如何相消并附来源。reproduction 对象记录版本、环境、命令、数据、种子、划分、可复做步骤及缺口。
+plan 含 language、sections，分节的 paragraphs 是有序句项数组的数组。每项有 id、role、text、evidence=[{"id":"S","quote":"原文"}]。角色为 procedure、data、split、parameter、evaluation、baseline、environment、repetition、limitation。另给 parameters=[{"name":"参数","value":"实际值","unit":"单位或无量纲","scope":"运行/阶段","status":"reported","evidence":[...]}]；冲突项列两个来源及 resolution，未报告给原因。参数值只能由能在原附件定位的引文或推导支持；找不到原句时，该参数保留名称和作用域，数值留空。记录给出参数值但缺单位时，保留数值，将 unit 留空并设 unit_status 为 unreported。“无量纲”须能回指材料中的定义，或在 unit_derivation 逐项写明量纲如何相消并附来源。reproduction 对象记录版本、环境、命令、数据、种子、划分、可复做步骤及缺口。
 
 ```sh
 python3 "$S/scripts/settings.py" /input /app/work/settings.json

@@ -147,15 +147,23 @@ def reconcile(records,manuscript,labels=None):
     if labels is None:
         labels={str(i):str(r.get("id",i)) for i,r in enumerate(records,1)}
     ordering={};occ=[];protected=[m.span() for m in PROTECTED.finditer(manuscript)]
+    numbering_problems=[];original_numbers=collections.defaultdict(list)
     ends=sentence_breaks(manuscript)
     def replace(m):
         if any(a<=m.start()<b for a,b in protected):return m[0]
         try:old=expand(m[1])
-        except ValueError as exc:issues.append({"offset":m.start(),"issue":str(exc)});return m[0]
+        except ValueError as exc:
+            numbering_problems.append({"offset":m.start(),"issue":str(exc)})
+            return m[0]
+        for label in old:
+            idx=mapping.get(str(labels.get(label,"")))
+            if idx is not None and int(label) not in original_numbers[idx]:
+                original_numbers[idx].append(int(label))
         unknown=[k for k in old if str(labels.get(k,"")) not in mapping]
         if unknown:
-            issues.append({"offset":m.start(),"issue":"unresolved citation label","labels":unknown,
-                           "sentence":citation_context(manuscript,m.start(),ends)});return m[0]
+            numbering_problems.append({"offset":m.start(),"issue":"unresolved citation label","labels":unknown,"group":old,
+                                       "sentence":citation_context(manuscript,m.start(),ends)})
+            return m[0]
         idxs=[mapping[str(labels[k])] for k in old]
         for idx in idxs:ordering.setdefault(idx,len(ordering)+1)
         new="["+compact([ordering[i] for i in idxs])+"]"
@@ -167,28 +175,43 @@ def reconcile(records,manuscript,labels=None):
         tail=manuscript[heading.end():];following=NEXT_SECTION.search(tail)
         end=heading.end()+(following.start() if following else len(tail))
         ref_block=manuscript[heading.end():end]
-        entries={str(m[1] or m[2]):m[3].strip() for m in REF_ENTRY.finditer(ref_block)}
+        entries={}
+        for entry in REF_ENTRY.finditer(ref_block):
+            label=entry[1] or entry[2]
+            if label in entries:
+                numbering_problems.append({"issue":"duplicate original bibliography label","label":label})
+            entries[label]=entry[3].strip()
         body=CITE.sub(replace,manuscript[:heading.start()])
-        def suffix_replace(match):
-            # Offsets in the audit are against the full source, including the bibliography.
-            return replace(match)
         suffix_parts=[];last=end
         for match in CITE.finditer(manuscript,end):
-            suffix_parts += [manuscript[last:match.start()],suffix_replace(match)];last=match.end()
+            suffix_parts += [manuscript[last:match.start()],replace(match)];last=match.end()
         suffix="".join(suffix_parts)+manuscript[last:]
         new_entries=[]
         for idx,n in ordering.items():
             old=next((label for label,rid in labels.items() if mapping.get(str(rid))==idx and str(label) in entries),None)
             if old is None:
-                issues.append({"issue":"bibliography block requires formatting for an unmapped record","record":merged[idx].get("id")})
+                numbering_problems.append({"issue":"bibliography entry missing for cited record","record":merged[idx].get("id")})
             else:new_entries.append("["+str(n)+"] "+entries[str(old)])
-        complete=bool(entries) and len(new_entries)==len(ordering)
-        if not complete:issues.append({"issue":"original bibliography retained, review original entry labels and format"})
-        revised=body+heading[0]+("\n\n"+"\n".join(new_entries)+"\n\n" if complete else ref_block)+suffix
+        revised=(body+heading[0]+"\n\n"+"\n".join(new_entries)+"\n\n"+suffix if ordering else manuscript)
     else:
         revised=CITE.sub(replace,manuscript)
-    used=[{"number":num,"record":merged[idx]} for idx,num in ordering.items()]
-    return revised,{"cited":used,"uncited":[r for i,r in enumerate(merged) if i not in ordering],"merge_decisions":decisions,
+    unknown_labels={int(label) for issue in numbering_problems for label in issue.get("labels",[])}
+    mixed_group=any(set(issue.get("group",[]))-set(issue.get("labels",[])) for issue in numbering_problems)
+    preserve=bool(numbering_problems) and (heading is not None or mixed_group or bool(unknown_labels.intersection(ordering.values()))
+                                            or any("labels" not in issue for issue in numbering_problems))
+    if preserve:
+        # Body, appendix and bibliography form one numbering system. Keep them together.
+        revised=manuscript
+        for item in occ:
+            item["new"]=item["old"]
+        used=[{"number":numbers[0],"source_numbers":numbers,"record":merged[idx]}
+              for idx,numbers in original_numbers.items()]
+    else:
+        used=[{"number":num,"record":merged[idx]} for idx,num in ordering.items()]
+    issues.extend(numbering_problems)
+    numbering_status="original_preserved" if preserve or not ordering else "partial" if numbering_problems else "resolved"
+    return revised,{"cited":used,"uncited":[r for i,r in enumerate(merged) if i not in original_numbers],"merge_decisions":decisions,
+                    "numbering_status":numbering_status,
                     "occurrences":occ,"metadata_status":[metadata_status(r,issues) for r in merged],"issues":issues}
 
 

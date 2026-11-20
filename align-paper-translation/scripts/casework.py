@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import posixpath
 import re
 import shutil
 import subprocess
@@ -115,6 +116,100 @@ def office_parts(path):
                             yield f"{member}:p{i}",s
 
 
+def spreadsheet_parts(path, issues, source):
+    """Index stored cell values and formulas separately, without calculating the workbook."""
+    sheet_ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    rel_ns = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+
+    def rich_text(element):
+        # Phonetic guides are annotations, not additional characters in the cell.
+        return "".join(node.text or "" for node in element.findall(sheet_ns + "t") +
+                       element.findall(sheet_ns + "r/" + sheet_ns + "t"))
+
+    def next_column(name):
+        letters = list(name)
+        while letters and letters[-1] == "Z":
+            letters.pop()
+        if not letters:
+            return "A" * (len(name) + 1)
+        letters[-1] = chr(ord(letters[-1]) + 1)
+        return "".join(letters) + "A" * (len(name) - len(letters))
+
+    with zipfile.ZipFile(path) as archive:
+        workbook = ET.fromstring(archive.read("xl/workbook.xml"))
+        relations = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+        targets = {}
+        strings = []
+        formats = []
+        for relation in relations:
+            if relation.get("TargetMode") == "External":
+                continue
+            name = posixpath.normpath(posixpath.join("xl", relation.attrib["Target"])).lstrip("/")
+            if relation.get("Type", "").endswith("/worksheet"):
+                targets[relation.attrib["Id"]] = name
+            elif relation.get("Type", "").endswith("/sharedStrings"):
+                table = ET.fromstring(archive.read(name))
+                strings = [rich_text(item) for item in table.findall(sheet_ns + "si")]
+            elif relation.get("Type", "").endswith("/styles"):
+                styles = ET.fromstring(archive.read(name))
+                codes = {"9": "0%", "10": "0.00%"}
+                for entry in styles.findall(sheet_ns + "numFmts/" + sheet_ns + "numFmt"):
+                    codes[entry.attrib["numFmtId"]] = entry.attrib["formatCode"]
+                formats = [codes.get(entry.get("numFmtId")) for entry in
+                           styles.findall(sheet_ns + "cellXfs/" + sheet_ns + "xf")]
+
+        for sheet in workbook.iter(sheet_ns + "sheet"):
+            member = targets.get(sheet.get(rel_ns + "id"))
+            if not member:
+                continue
+            title = "'" + sheet.attrib["name"].replace("'", "''") + "'!"
+            row_number = 0
+            with archive.open(member) as stream:
+                for _, row in ET.iterparse(stream, events=("end",)):
+                    if row.tag != sheet_ns + "row":
+                        continue
+                    row_number = int(row.get("r", row_number + 1))
+                    column = "A"
+                    for cell in row.findall(sheet_ns + "c"):
+                        address = cell.get("r", column + str(row_number))
+                        position = re.fullmatch(r"([A-Z]+)[1-9][0-9]*", address)
+                        if position is None:
+                            issues.append({"file": source, "location": title, "reason": "invalid cell address " + address})
+                            continue
+                        column = next_column(position[1])
+                        location = title + address
+                        kind = cell.get("t", "n")
+                        value = cell.findtext(sheet_ns + "v")
+                        formula = cell.find(sheet_ns + "f")
+                        if formula is not None:
+                            if formula.text:
+                                yield location + ":formula", "=" + formula.text
+                            if value in (None, ""):
+                                issues.append({"file": source, "location": location,
+                                               "reason": "formula has no stored result; recalculate in the original workbook"})
+                                continue
+                            location += ":cached"
+                        if kind == "s" and value is not None:
+                            if not value.isdecimal() or int(value) >= len(strings):
+                                issues.append({"file": source, "location": location, "reason": "invalid shared-string index"})
+                                continue
+                            value = strings[int(value)]
+                        elif kind == "inlineStr":
+                            content = cell.find(sheet_ns + "is")
+                            value = rich_text(content) if content is not None else None
+                        elif kind == "b" and value in {"0", "1"}:
+                            value = "TRUE" if value == "1" else "FALSE"
+                        elif kind == "e":
+                            issues.append({"file": source, "location": location, "reason": "Excel error " + (value or "")})
+                            continue
+                        if value is not None and value.strip():
+                            yield location, value
+                            style = cell.get("s", "0")
+                            if kind == "n" and style.isdecimal() and int(style) < len(formats) and formats[int(style)]:
+                                yield title + address + ":format", formats[int(style)]
+                    row.clear()
+
+
 def prepare(input_dir, work):
     root = Path(input_dir)
     case = read(root/"case.json")
@@ -151,6 +246,9 @@ def prepare(input_dir, work):
             elif ext in {".docx", ".pptx"}:
                 for loc, para in office_parts(path):
                     append(rel, loc, para)
+            elif ext == ".xlsx":
+                for loc, value in spreadsheet_parts(path, issues, rel):
+                    append(rel, loc, value)
             elif ext in TEXT:
                 raw = path.read_text(encoding="utf-8-sig")
                 for loc, para in paragraphs(raw):

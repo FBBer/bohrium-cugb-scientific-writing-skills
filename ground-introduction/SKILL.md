@@ -17,11 +17,11 @@ mkdir -p /app/work /app/output
 python3 "$S/scripts/casework.py" index --input /input --work /app/work
 ```
 
-sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
+sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。Excel 实验表按工作表名和单元格定位。数字保留存储值，百分号等格式另列；公式、已有缓存值分别记录，未缓存的公式需要用原工作簿重算。写作时同时引用数值单元格及同一连续数据列的单位表头，可保留原量纲。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
 
 ## 执行方法
 
-输入计划含 language、sections（各含 title、paragraphs），每个 paragraph 由有序句项构成。句项例 {"id":"I1","role":"gap","text":"仅限所比较工作可推出的空白","condition":"比较边界","evidence":[{"id":"S","quote":"最小原文"}]}。角色为 background、comparison、gap、objective、contribution、scope。comparisons 以同一维度列出各工作的 work、axis、method、condition、observed_result、limit 和 evidence。缺项留空并解释，不从另一篇工作借数值。
+输入计划含 language、sections（各含 title、paragraphs），每个 paragraph 由有序句项构成。句项例 {"id":"I1","role":"gap","text":"仅限所比较工作可推出的空白","condition":"比较边界","evidence":[{"id":"S","quote":"最小原文"}]}。角色为 background、comparison、gap、objective、contribution、scope。comparisons 以同一维度列出各工作的 work、axis、method、condition、observed_result、limit 和 evidence。比较表使用能回查的引文；带数值的结果须见于引文或有可复算的推导。缺依据的比较行留在审计文件，供作者补证后使用。
 
 从具体任务和技术约束导入，按可比的问题/方法分组，每组说明共同点、差异和取舍。对照方法不是综述文章自己的实验，注意区分谁提出、谁引用。各论文的数值只有在数据集、划分、指标、预算相容时才能直接比较。引用写在实际受支持的句末，优先使用题目提供的著者和文献键，补充材料只在授权且可核对时使用。
 

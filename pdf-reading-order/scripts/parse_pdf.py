@@ -3,6 +3,7 @@ import argparse
 from collections import Counter, defaultdict
 import csv
 import io
+from itertools import combinations
 from pathlib import Path
 import re
 import shutil
@@ -13,10 +14,67 @@ import xml.etree.ElementTree as ET
 from casework import write, atomic_text
 
 
-def band_order(lines, width):
+def three_column_order(lines, width):
+    """Require three recurring prose margins with simultaneous text and two empty gutters."""
+    candidates = [line for line in lines if len(line["text"].strip()) >= 16
+                  and .13 * width <= line["bbox"][2] - line["bbox"][0] <= .36 * width]
+    clusters = []
+    for line in sorted(candidates, key=lambda item: item["bbox"][0]):
+        if not clusters or line["bbox"][0] - clusters[-1][0]["bbox"][0] > .018 * width:
+            clusters.append([])
+        clusters[-1].append(line)
+    options = []
+    for groups in combinations([group for group in clusters if len(group) >= 3], 3):
+        starts = [min(line["bbox"][0] for line in group) for group in groups]
+        if starts[0] > .23 * width or any(not .19 * width <= b-a <= .43 * width for a, b in zip(starts, starts[1:])):
+            continue
+        right = [max(line["bbox"][2] for line in group) for group in groups[:2]]
+        gaps = [start - end for start, end in zip(starts[1:], right)]
+        if min(gaps) < max(5, .013 * width):
+            continue
+        top = max(min(line["bbox"][1] for line in group) for group in groups)
+        bottom = min(max(line["bbox"][3] for line in group) for group in groups)
+        if bottom - top < 2 * statistics.median(line["bbox"][3] - line["bbox"][1] for group in groups for line in group):
+            continue
+        cuts = tuple((end + start) / 2 for end, start in zip(right, starts[1:]))
+        options.append((sum(map(len, groups)), cuts))
+    if not options:
+        return None
+    cuts = max(options)[1]
+    dividers, columns = [], [[], [], []]
+    for line in lines:
+        left, _, right, _ = line["bbox"]
+        crossed = sum(left < x < right for x in cuts)
+        if crossed == 1:
+            return None  # A partial-width float may change reading order in just two columns.
+        if crossed == 2:
+            dividers.append(line)
+        else:
+            columns[sum(left >= x for x in cuts)].append(line)
+    order = lambda line: (line["bbox"][1], line["bbox"][0])
+    result = []
+    for divider in sorted(dividers, key=order) + [None]:
+        stop = divider["bbox"][1] if divider else float("inf")
+        for i, column in enumerate(columns):
+            band = [line for line in column if (line["bbox"][1] + line["bbox"][3]) / 2 < stop]
+            for line in sorted(band, key=order):
+                line["column"] = i + 1
+                result.append(line)
+            columns[i] = [line for line in column if (line["bbox"][1] + line["bbox"][3]) / 2 >= stop]
+        if divider:
+            divider["column"] = "span"
+            result.append(divider)
+    return result
+
+
+def band_order(lines, width, tables=()):
     """Partition by a supported gutter, then place spanning lines between column bands."""
     if len(lines) < 4:
         return sorted(lines,key=lambda a:(a["bbox"][1],a["bbox"][0]))
+    if len(lines) >= 9 and not any("bbox" in table for table in tables):
+        ordered = three_column_order(lines, width)
+        if ordered is not None:
+            return ordered
     choices=[]
     for pct in range(31,71,2):
         cut=width*pct/100
@@ -363,7 +421,7 @@ def run(path,dest,language):
                     a["role"]="running_"+side
                 else:
                     central.append(a)
-            ordered=band_order(central,p["size"][0])
+            ordered=band_order(central,p["size"][0],p["tables"])
             p["marginalia"]=[a for a in p["lines"] if a["role"].startswith("running_")]
             for i,a in enumerate(p["marginalia"],1):a["id"]=f'p{p["page"]}:m{i}'
             p["lines"]=ordered

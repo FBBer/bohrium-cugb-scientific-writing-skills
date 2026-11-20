@@ -2,7 +2,7 @@
 import argparse
 from collections import defaultdict
 import csv
-from decimal import Decimal, DecimalException
+from decimal import Decimal, DecimalException, localcontext, ROUND_HALF_UP
 import io
 from pathlib import Path
 import re
@@ -20,6 +20,70 @@ def quantities(text):
 def absent_measurements(sentence,source):
     known={(value,unit) for value,unit,_ in quantities(source)}
     return [raw for value,unit,raw in quantities(sentence) if (value,unit) not in known]
+
+
+def spreadsheet_units(sources):
+    """Associate numeric cells with a unit header within the same continuous column."""
+    columns=defaultdict(list); formats={}
+    for item in sources:
+        if not item["source"].lower().endswith(".xlsx"):
+            continue
+        if item["location"].endswith(":format"):
+            formats[item["source"],item["location"][:-7]]=item
+            continue
+        cell=re.fullmatch(r"('(?:[^']|'')+')!([A-Z]+)([1-9]\d*)(?::cached)?",item["location"])
+        if cell:
+            columns[item["source"],cell[1],cell[2]].append((int(cell[3]),item))
+    result={}
+    for cells in columns.values():
+        header=None; previous=0
+        for row,item in sorted(cells,key=lambda pair:pair[0]):
+            if row!=previous+1:
+                header=None
+            previous=row
+            text=item["text"].strip()
+            if re.fullmatch(r"[+−-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+−-]?\d+)?",text):
+                style=formats.get((item["source"],item["location"].removesuffix(":cached")))
+                if style and re.fullmatch(r"0(?:\.0+)?%",style["text"]):
+                    precision=style["text"].count("0")-1
+                    stored=Decimal(text.replace("−","-"))
+                    if abs(stored.adjusted())>308 or precision>30:
+                        continue
+                    with localcontext() as context:
+                        context.prec=max(34,len(stored.as_tuple().digits)+3,stored.adjusted()+precision+5)
+                        amount=stored*100
+                        displayed=amount.quantize(Decimal(1).scaleb(-precision),rounding=ROUND_HALF_UP)
+                    with_unit=[str(amount)+"%",str(displayed)+"%"]
+                    result[item["id"]]=(item["text"],style["id"],style["text"],with_unit)
+                elif header:
+                    header_id,header_text,unit=header
+                    result[item["id"]]=(item["text"],header_id,header_text,[text+" "+unit])
+                continue
+            header=None
+            label=re.search(r"(?:\(([^()]+)\)|\[([^\[\]]+)\])\s*$",text)
+            if label:
+                unit=(label[1] or label[2]).strip()
+                recognized=NUMBER.fullmatch("1 "+unit)
+                if recognized and recognized[2]==unit:
+                    header=(item["id"],item["text"],unit)
+    return result
+
+
+def evidence_quantities_text(evidence, units, sources):
+    parts=[]
+    for ref in evidence:
+        source=sources.get(ref.get("id"),{})
+        if source.get("source","").lower().endswith(".xlsx") and source.get("location","").endswith((":format",":formula")):
+            continue
+        parts.append(ref.get("quote",""))
+    literal={(ref.get("id"),ref.get("quote")) for ref in evidence}
+    for ref in evidence:
+        pair=units.get(ref.get("id"))
+        if pair:
+            value,header_id,header_text,measurements=pair
+            if ref.get("quote")==value and (header_id,header_text) in literal:
+                parts.extend(measurements)
+    return "\n".join(parts)
 
 def condition_substitution(body,condition,evidence):
     if not isinstance(condition,str) or not condition.strip():
@@ -142,6 +206,7 @@ def write_paper_cards(output, notes, comparisons, errors):
 
 def render(mode, index, plan, output):
     sources={r["id"]:r for r in index["sources"]}
+    sheet_units=spreadsheet_units(index["sources"])
     report={"mode":mode,"issues":[],"sections":[],"claims":0,"evidence_checks":0,"unresolved":[]}
     lookup=[]; paragraphs=[]; anchors={}; keywords=defaultdict(list); used=set(); ids=set()
     card_notes={}
@@ -169,7 +234,7 @@ def render(mode, index, plan, output):
                 if not ev and state not in {"unreported","uncertain"}: report["issues"].append({"claim":key,"issue":"missing evidence"})
                 for err in check_evidence(ev,index["sources"]): report["issues"].append({"claim":key,"issue":err})
                 report["evidence_checks"]+=len(ev)
-                joined=" ".join(e.get("quote","") for e in ev)
+                joined=evidence_quantities_text(ev,sheet_units,sources)
                 if state=="supported":
                     changed_condition=condition_substitution(body,row.get("condition"),ev)
                     if changed_condition:report["issues"].append({"claim":key,**changed_condition})
@@ -216,10 +281,21 @@ def render(mode, index, plan, output):
         write(output/"topic-index.json",dict(sorted(keywords.items())))
         write_paper_cards(output,card_notes,plan.get("comparisons",[]),report["issues"])
     if mode=="introduction":
-        axes=plan.get("comparisons",[])
-        for a in axes:
-            for e in check_evidence(a.get("evidence",[]),index["sources"]): report["issues"].append({"comparison":a.get("work"),"issue":e})
-            if not a.get("evidence"): report["issues"].append({"comparison":a.get("work"),"issue":"unanchored comparison"})
+        axes=[]
+        for comparison in plan.get("comparisons",[]):
+            evidence=comparison.get("evidence",[])
+            problems=check_evidence(evidence,index["sources"]) if evidence else ["unanchored comparison"]
+            if evidence and not problems:
+                quoted=evidence_quantities_text(evidence,sheet_units,sources)
+                result_text=str(comparison.get("observed_result") or "")
+                for number in absent_measurements(result_text,quoted):
+                    if not derived_measurement(number,evidence,comparison.get("derivation")):
+                        problems.append("comparison result lacks source or derivation: "+number)
+            if problems:
+                report["issues"].extend({"comparison":comparison.get("work"),"issue":reason} for reason in problems)
+                report["unresolved"].append({"comparison":comparison,"reasons":problems})
+            else:
+                axes.append(comparison)
         write(output/"comparison-matrix.json",axes)
         contributions=[row for row in lookup if row[2]=="contribution" and row[3]=="supported"]
         atomic_text(output/"contribution-evidence.tsv",tabular(["claim","section","role","status","source","location","quote","condition"],contributions))
@@ -228,8 +304,15 @@ def render(mode, index, plan, output):
         audited_params=[]
         for original in params:
             r=dict(original)
-            ev=r.get("evidence",[]); state=r.get("status","reported")
-            for err in check_evidence(ev,index["sources"]): report["issues"].append({"parameter":r.get("name"),"issue":err})
+            ev=[]; state=r.get("status","reported")
+            for item in r.get("evidence",[]):
+                errors=check_evidence([item],index["sources"])
+                if errors:
+                    report["issues"].append({"parameter":r.get("name"),"issue":errors[0]})
+                    report["unresolved"].append({"parameter":r.get("name"),"candidate_evidence":item})
+                else:
+                    ev.append(item)
+            r["evidence"]=ev
             value=str(r.get("value","")).strip();unit=str(r.get("unit") or "").strip()
             unit_issue=parameter_unit_issue(r,unit,ev)
             if unit_issue:
@@ -237,7 +320,7 @@ def render(mode, index, plan, output):
                 r["unit"]=None
                 r["unit_status"]="unreported"
             measured=value+(" "+unit if unit.casefold() not in UNSPECIFIED_UNITS|{"1","dimensionless","unitless","无量纲","无单位"} and unit not in value else "")
-            quotes=" ".join(e.get("quote","") for e in ev)
+            quotes=evidence_quantities_text(ev,sheet_units,sources)
             match=(not absent_measurements(measured,quotes) if quantities(measured) else bool(value) and value in quotes)
             if unit_issue and len(quantities(value))==1:
                 match=any(number==quantities(value)[0][0] for number,_,_ in quantities(quotes))
@@ -245,6 +328,9 @@ def render(mode, index, plan, output):
                 report["issues"].append({"parameter":r.get("name"),"candidate":value,"issue":"value absent from primary evidence"})
                 r["value"]=None
                 r["value_status"]="unsupported"
+                if not ev:
+                    r["unit"]=None
+                    r["unit_status"]="unreported"
             if state=="conflict" and (len(ev)<2 or not r.get("resolution")):
                 report["issues"].append({"parameter":r.get("name"),"issue":"conflict needs alternatives and decision"})
             audited_params.append(r)
