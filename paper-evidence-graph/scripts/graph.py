@@ -106,7 +106,11 @@ def check_relation_polarity(edges, nodes, sources, issues):
                 issues.append({"edge":edge["predicate"],"evidence":ref,
                                "issues":["the quoted clause reverses or qualifies this directed relation"]})
                 continue
-            excerpts = [m.span() for m in re.finditer(re.escape(quote), passage)]
+            selection = ref.get("passage")
+            if selection and ref["id"] in sources:
+                excerpts = [(selection["start"],selection["end"])]
+            else:
+                excerpts = [m.span() for m in re.finditer(re.escape(quote), passage)]
             signs = {
                 passage_polarity(passage, m)
                 for m in pattern.finditer(passage)
@@ -123,6 +127,7 @@ def check_relation_polarity(edges, nodes, sources, issues):
 
 
 def dataset(index,plan,previous=None):
+    from passages import locate
     graph=previous or {"nodes":[],"edges":[]}
     nodes={n["id"]:dict(n) for n in graph["nodes"]};edges={e["id"]:dict(e) for e in graph["edges"]}
     refs={};notes=[];source_files={s["id"]:s["source"] for s in index["sources"]}
@@ -147,6 +152,7 @@ def dataset(index,plan,previous=None):
             old["members"]=unique(old.get("members",[])+[{"key":local,"document":n.get("document",source_files[ev[0]["id"]])}])
             if n.get("merge_reason"): old["alignments"]=list(dict.fromkeys(old.get("alignments",[])+[n["merge_reason"]]))
         else: nodes[sid]={**n,"id":sid,"members":[{"key":local,"document":n.get("document",source_files[ev[0]["id"]])}]}
+    blocks = {r["id"]:r for r in index["sources"]}
     for e in plan.get("edges",[]):
         a=refs.get(e.get("source"),e.get("source"));b=refs.get(e.get("target"),e.get("target"))
         ev=e.get("evidence",[]);err=check_evidence(ev,index["sources"])
@@ -154,6 +160,16 @@ def dataset(index,plan,previous=None):
         if not ev or not all(e.get(k) for k in ("predicate","scope","strength","polarity")): err.append("missing qualified relation or evidence")
         if e.get("strength") not in {"direct","inference","quoted"}: err.append("unknown support type")
         if e.get("polarity") not in {"positive","negative","uncertain"}: err.append("unknown polarity")
+        if not err:
+            located = []
+            for ref in ev:
+                try:
+                    located.append({**ref, "passage":locate(blocks[ref["id"]],ref)})
+                except ValueError as exc:
+                    notes.append({"edge":e["predicate"], "evidence":ref, "issues":[str(exc)]})
+            ev = located
+            if not ev:
+                err.append("no uniquely located evidence for this relation")
         if err: notes.append({"edge":e.get("predicate"),"issues":err});continue
         sid=stable("e",[a,e["predicate"],b,e["scope"],e["polarity"],e["strength"]])
         edges[sid]={**e,"id":sid,"source":a,"target":b,"evidence":unique(edges.get(sid,{}).get("evidence",[])+ev)}

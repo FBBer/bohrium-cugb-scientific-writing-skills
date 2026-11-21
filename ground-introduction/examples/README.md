@@ -25,3 +25,11 @@ python3 scripts/compose.py introduction work/sources.json work/intro-plan.json o
 output/introduction.md 与 comparison-matrix.json。需要追溯时可打开逐句来源表。
 
 [完整用法和输入格式](../SKILL.md)
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+将本例的引言和具体论断所引的原句一起交给合作者。
+
+```sh
+python3 scripts/compose.py introduction my-example/work/sources.json my-example/work/intro-plan.json my-example/output --word --preview
+```

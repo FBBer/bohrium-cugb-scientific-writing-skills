@@ -25,3 +25,12 @@ python3 scripts/citations.py records.json manuscript.md output --labels labels.j
 output/manuscript.md、cited.csl.json 和逐处编号对照。外部数据库核验另有明确记录。
 
 [完整用法和输入格式](../SKILL.md)
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+用最小样例的文献库，给单独一条原句补上作者选定的 A 条目，然后同步书目。
+
+```sh
+python3 scripts/place.py my-example/input/records.json examples/sentence.md examples/placement-plan.json with-citations
+python3 scripts/citations.py my-example/input/records.json with-citations/manuscript-cited.md with-library
+```

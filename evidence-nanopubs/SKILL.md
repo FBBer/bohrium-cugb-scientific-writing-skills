@@ -18,6 +18,8 @@ python3 "$S/scripts/nanopubs.py" /app/work/sources.json /app/work/claims.json /a
 
 对主动句和被动句先辨明谁作用于谁。校准、使用、检测等常见关系会用引文核对方向，否定或推测保留其原有语气。
 
+引文在同一来源段中重复时，在 evidence 中给出 start（从 0 计的 Unicode 字符位置）或原文紧邻的 prefix、suffix。assertions.json 和 TriG 都有原句的起止位置及左右文，可以核对一段中不同条件下的同一句话。
+
 从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
 
 [输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)

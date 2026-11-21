@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 from urllib.parse import quote
 from casework import read,write,atomic_text,check_evidence
+from passages import locate
 
 PREFIX='''@prefix np: <http://www.nanopub.org/nschema#> .
 @prefix prov: <http://www.w3.org/ns/prov#> .
@@ -89,6 +90,13 @@ def export(index,record,out):
     for item in record["claims"]:
         key=item.get("id");evidence=item.get("evidence",[])
         errors=check_evidence(evidence,index["sources"])
+        selected = []
+        if not errors:
+            for ref in evidence:
+                try:
+                    selected.append(locate(sources[ref["id"]], ref))
+                except ValueError as exc:
+                    errors.append(f"{ref['id']}: {exc}")
         for field in ("subject","predicate","object","statement","scope","polarity","evidence_type"):
             if not isinstance(item.get(field),str) or not item[field].strip(): errors.append("missing "+field)
         if item.get("evidence_type") not in {"direct","inference","reported-by-others"}: errors.append("unknown evidence type")
@@ -119,7 +127,8 @@ def export(index,record,out):
         except ValueError as exc:
             issues.append({"id":key,"reasons":[str(exc)]})
             continue
-        sid=digest([payload,terms,qualifiers["source_cues"],bindings,source_editions,record.get("publication",{})])
+        selected.sort(key=lambda s:(s["source"],s["location"],s["exact"],s["start"]))
+        sid=digest([payload,terms,qualifiers["source_cues"],selected,source_editions,record.get("publication",{})])
         if sid in seen: continue
         seen.add(sid)
         base="np:"+sid
@@ -137,10 +146,14 @@ def export(index,record,out):
             triples.append(f"{subject} {predicate} {obj} .")
         graphs.append(a + " { " + " ".join(triples) + " }")
         triples=[]
-        for j,(source,location,fragment) in enumerate(bindings,1):
+        for j,selection in enumerate(selected,1):
+            source,location,fragment=(selection[k] for k in ("source","location","exact"))
             ev=uri(base+f":e{j}");document=uri("doc:"+quote(source,safe="")+":"+digest(source_editions[source]))
             triples.extend([f"{a} prov:wasDerivedFrom {ev} .", f"{ev} prov:wasQuotedFrom {document} ; c:location {literal(location)} ; rdf:value {literal(fragment)} .",
                             f"{document} dct:identifier {literal(source)} ."])
+            triples.append(f"{ev} c:start {selection['start']} ; c:end {selection['end']} ; "
+                           f"c:prefix {literal(selection['prefix'])} ; c:suffix {literal(selection['suffix'])} ; "
+                           f"c:blockSha256 {literal(selection['block_sha256'])} .")
             paper=meta.get(source,{})
             for attr in ("title","identifier","date","hasVersion","creator"):
                 values=paper.get(attr,[]);values=values if isinstance(values,list) else [values]
@@ -150,7 +163,7 @@ def export(index,record,out):
         for attr in ("creator","created","hasVersion","license"):
             if record.get("publication",{}).get(attr): info.append(f"{n} dct:{attr} {literal(record['publication'][attr])} .")
         graphs.append(i+" { "+" ".join(info)+" }");blocks.extend(graphs)
-        accepted.append({**item,**qualifiers,"relation_iris":terms,"nanopub_id":"urn:scholar:"+base})
+        accepted.append({**item,**qualifiers,"passages":selected,"relation_iris":terms,"nanopub_id":"urn:scholar:"+base})
     atomic_text(out/"nanopubs.trig",PREFIX+"\n\n"+"\n\n".join(blocks)+"\n")
     write(out/"assertions.json",{"claims":accepted,"source_metadata":meta,"unresolved":issues})
     return accepted,issues

@@ -18,6 +18,8 @@ python3 "$S/scripts/citations.py" /input/library.json /input/manuscript.md /app/
 
 正文用作者和年份引用时，可识别叙述式、括号内合引及原库给定的年份后缀。同姓同年有多个候选时，在引用记录里列出候选书目。
 
+作者已经选定来源、需要将引用插到原句时，先用 place.py 以段落中的原句定位，再将输出交给 citations.py 排序。位置与库中条目的写法见方法说明。
+
 从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
 
 [输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)

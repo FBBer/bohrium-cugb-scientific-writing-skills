@@ -18,6 +18,8 @@ python3 "$S/scripts/parse_pdf.py" /input/paper.pdf /app/output/layout.json
 
 需要连续正文时，读取 layout.json 中的 structure.paragraphs。每个段落给出物理页码、逐行位置和字符范围，双栏各自连接。
 
+需要对照版面时，解析完成后运行 `python3 "$S/scripts/atlas.py" paper.pdf layout.json source-atlas.html --pages 1,3-5`。在浏览器打开 HTML，点选文字、表格或图片即可在对应原页上定位。省略 --pages 可查看全文。需要 PyMuPDF。
+
 从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
 
 [输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)

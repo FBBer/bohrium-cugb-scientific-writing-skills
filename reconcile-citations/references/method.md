@@ -19,3 +19,14 @@ JSON、RIS 和带标签的 EndNote 导入使用 Python 标准库。BibTeX 导入
 对于 [@article-key, p. 12; -@other] 与 LaTeX 文献命令，保留页码、引文命令及顺序。确属同一条记录的旧键转到规范键，无法匹配的键保持原文并列出位置。混合使用数字与键时，保留原稿的数字标记并分别对应文献。代码和行内数学中的示例标记保留。
 
 原库给出的年份后缀可写入 year-suffix，例如 a。作者与年份匹配后，原句和起止位置写入 citation-audit.json。数字与作者年份混合出现时保留原有标记。有多个同姓同年候选时，查原文题名或 DOI 再决定。
+
+## 引用插在原句
+
+将作者选定的原句和对应文献库 ID 写入 placements.json。例如稿件出现 “The two series were measured independently.”，材料中确实有支持这句的条目 keller，可写 `{"placements":[{"quote":"The two series were measured independently.","records":["keller"],"style":"pandoc"}]}`。重复的句子用紧邻的 prefix、suffix 或原稿中从零计的字符位置 start 分辨。
+
+```sh
+python3 "$S/scripts/place.py" library.json manuscript.md placements.json work/cited
+python3 "$S/scripts/citations.py" library.json work/cited/manuscript-cited.md output
+```
+
+LaTeX 稿选 style 为 latex。一句合引的所有条目放进同一 records 数组。已有原论文时，加上 `--sources work/sources.json`；对应条目写在 support 数组内，每项含 record（所选书目 ID）、id（所引来源段 ID）、quote（原句）。placements.json 的结果列出插入前的字符范围及书目，来源原句可以逐字回查。工具根据作者选择放置引文；措辞强度、研究人群与结论之间的支持程度要根据论文核定。

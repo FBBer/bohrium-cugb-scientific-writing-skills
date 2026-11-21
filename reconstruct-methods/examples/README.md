@@ -25,3 +25,14 @@ python3 scripts/compose.py methods work/sources.json work/methods-plan.json outp
 output/methods.md、parameters.json 和 reproduction.json。数值、单位和所属运行分别保留。
 
 [完整用法和输入格式](../SKILL.md)
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+## 铝梁重装试验
+
+附带一组为教学构造的夹具记录。旧草案给两个夹具写了同一加载质量，实际记录按简支、固支分别给出砝码、支距和重复数。下面的 Word 含可编辑参数表，正文及表值可跳到原始实验格。
+
+```sh
+python3 scripts/casework.py index --input examples/beam/input --work beam-work
+python3 scripts/compose.py methods beam-work/sources.json examples/beam/plan.json beam-output --word --preview
+```

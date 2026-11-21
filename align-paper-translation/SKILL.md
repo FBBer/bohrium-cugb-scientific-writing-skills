@@ -20,6 +20,8 @@ segments.json 的 segments 含 id、location、text；translation.json 是逐段
 
 原稿为 Word 时，先从索引生成 segments.json。翻译完成后给 prose.py 加上 --original-docx /input/paper.docx，可让两栏保留可编辑分式。
 
+长稿可按原文顺序分批翻译。运行 `python3 "$S/scripts/chunks.py" split segments.json packets --chars 5000 --context 1`。每份 part 文件的 before 和 after 供确认指代，填写 draft 内各段的 target。最后运行 `python3 "$S/scripts/chunks.py" merge segments.json packets translation.json`，将 translation.json 交给 prose.py。原文中的同名段落按各自位置保留。
+
 从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
 
 [输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)

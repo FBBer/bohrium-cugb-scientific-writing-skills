@@ -315,8 +315,14 @@ def spreadsheet_parts(path, issues, source):
 
 
 def prepare(input_dir, work):
-    root = Path(input_dir)
-    case = read(root/"case.json")
+    root = Path(input_dir).resolve()
+    work = Path(work).resolve()
+    if not root.is_dir() or work == root:
+        raise ValueError("choose an existing materials folder and a separate output folder")
+    case_file = root/"case.json"
+    case = read(case_file) if case_file.is_file() else {}
+    if not isinstance(case, dict):
+        raise ValueError("case.json must contain an object")
     rows, files, issues, records = [], [], [], []
 
     def append(source, location, text):
@@ -328,7 +334,7 @@ def prepare(input_dir, work):
         return rows[-1]["id"]
 
     for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.is_symlink():
+        if not path.is_file() or path.is_symlink() or (root in work.parents and work in path.parents):
             continue
         rel = path.relative_to(root).as_posix()
         files.append({"path":rel, "bytes":path.stat().st_size})

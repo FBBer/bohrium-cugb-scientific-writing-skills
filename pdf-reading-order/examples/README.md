@@ -25,3 +25,11 @@ python3 scripts/parse_pdf.py paper.pdf output/layout.json
 output/layout.json 和同名 TXT。表外列名保存在 external_header，网格内的数据行仍按原顺序读取。若一个网格行中并列多组测量，可在 aligned_measurements 中按原表行名读取数值；如 10¹⁹ 的上标仍有原始文字可追溯。
 
 [完整用法和输入格式](../SKILL.md)
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+在刚才的双栏样例上点选一行，对照原始页。
+
+```sh
+python3 scripts/atlas.py my-example/input/columns.pdf my-example/output/layout.json my-example/output/source-atlas.html
+```

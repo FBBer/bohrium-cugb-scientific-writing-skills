@@ -25,3 +25,7 @@ python3 scripts/nanopubs.py work/sources.json work/claims.json output
 output/nanopubs.trig 与 assertions.json。断言、出处与发布信息可分别读取。
 
 [完整用法和输入格式](../SKILL.md)
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+同一段落两次出现同句时，如 `At sunrise, Prism A uses Lens B. At dusk, Prism A uses Lens B.`，可给第二项引文写 `"quote":"Prism A uses Lens B.","prefix":"At dusk, "`。两项指向的字符范围不同。JSON 的 passages 可检查原句，TriG 的 start 和 end 可交给程序定位。

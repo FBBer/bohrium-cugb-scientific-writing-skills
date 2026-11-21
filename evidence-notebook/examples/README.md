@@ -25,3 +25,11 @@ python3 scripts/compose.py notes work/sources.json work/notes-plan.json output -
 output/notes.md、paper-cards.json 和主题索引。论文事实与读者解释分别标明。
 
 [完整用法和输入格式](../SKILL.md)
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+导出这个样例的 Word 和 PDF，点笔记中的序号可阅读证据。
+
+```sh
+python3 scripts/compose.py notes my-example/work/sources.json my-example/work/notes-plan.json my-example/output --word --preview
+```

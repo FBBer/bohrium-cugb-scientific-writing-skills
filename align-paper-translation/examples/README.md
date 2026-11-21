@@ -27,3 +27,7 @@ output/bilingual.md。严格模式遇到需复核的译稿时保存在 candidate
 [完整用法和输入格式](../SKILL.md)
 
 需要实际的 Word 文件及 PDF 预览时，在本工具的 prose.py 命令后加 `--word --preview`。Word 使用 python-docx，PDF 使用 LibreOffice。
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+长稿可先在这个两段样例上分批。运行 `python3 scripts/chunks.py split my-example/work/segments.json my-packets --chars 40`，在各文件的 draft 中填写 target，`python3 scripts/chunks.py merge my-example/work/segments.json my-packets merged.json` 会依原次序合稿。

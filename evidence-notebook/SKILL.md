@@ -18,6 +18,8 @@ notes.md 可直接阅读，paper-cards.json 按论文保留事实、解释、局
 
 从实验表做笔记时，可按研究对象和条件定位同一条观测。rows 返回该格读数、单位列头与原行位置。
 
+交付可编辑笔记时，在 compose.py 命令末尾加 `--word --preview`。notes.docx 保留作者拟定的章节，每条笔记后面的编号可跳至原句、文件名和原文位置。notes.pdf 由同一 Word 文件生成。Word 需要 python-docx，PDF 另需 LibreOffice。
+
 从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
 
 [输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)

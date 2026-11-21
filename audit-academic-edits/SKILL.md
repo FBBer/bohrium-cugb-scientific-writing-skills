@@ -20,6 +20,8 @@ python3 "$S/scripts/prose.py" edit /app/work/segments.json /app/work/revisions.j
 
 按 Word 原段改稿时，--original-docx /input/paper.docx 会保留句中原有的公式、链接与自动编号，周围文字可以正常修订。
 
+分批改长稿时，运行 `python3 "$S/scripts/chunks.py" split segments.json packets --chars 5000 --context 1`。前后段供判断指代，直接在各份 part 文件的 draft 中填写 target，并为有改动的句子填写 type 和 reason。使用 `python3 "$S/scripts/chunks.py" merge segments.json packets edits.json` 合回原文顺序，然后将 edits.json 交给 prose.py。
+
 从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
 
 [输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)

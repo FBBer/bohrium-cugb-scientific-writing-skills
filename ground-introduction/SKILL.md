@@ -18,6 +18,8 @@ python3 "$S/scripts/compose.py" introduction /app/work/sources.json /app/work/in
 
 比较不同研究时，rows 可按论文编号和章节提取原文。同名章节属于哪篇文献，会随引文一起返回。
 
+交付 Word 稿时，在 compose.py 命令末尾加 `--word --preview`。introduction.docx 的每个有依据的论断可跳到文末所引原句，另有同版 PDF。按论文要求保留正文原有的作者年份、引文键或序号。Word 需要 python-docx，PDF 另需 LibreOffice。
+
 从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
 
 [输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)

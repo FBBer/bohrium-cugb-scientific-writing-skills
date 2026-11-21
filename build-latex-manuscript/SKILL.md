@@ -18,6 +18,8 @@ python3 "$S/scripts/build.py" /app/work/project auto /app/output/latex-build
 
 编译失败时，build.json 的 source_diagnostics 给出报错的实际文件、行号和原句。project_inputs 列出本次编译实际打开的稿件与附件。
 
+要把一段 TeX 正文合入已有期刊或论文模板，可用 transfer.py 选定真实的目标文件与插入位置。工具保留模板导言、图表与书目命令，导出工程、逐行修改记录与编译后的 PDF。见方法说明中的模板迁入示例。
+
 从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
 
 [输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)

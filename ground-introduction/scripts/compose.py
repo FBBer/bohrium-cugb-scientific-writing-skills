@@ -73,23 +73,23 @@ def spreadsheet_units(sources):
                     result[item["id"]]=(item["text"],header_id,header_text,[text+" "+unit])
                 continue
             header=None
-            label=re.search(r"(?:\(([^()]+)\)|\[([^\[\]]+)\])\s*$",text)
+            label=re.search(r"(?:\(([^()]+)\)|\[([^\[\]]+)\]|_([^_\s]+))\s*$",text)
             if label:
-                unit=(label[1] or label[2]).strip()
+                unit=next(v.strip() for v in label.groups() if v)
                 recognized=NUMBER.fullmatch("1 "+unit)
                 if recognized and recognized[2]==unit:
                     header=(item["id"],item["text"],unit)
     return result
 
 
-def evidence_quantities_text(evidence, units, sources):
+def evidence_quantities_text(evidence, units, sources, header_evidence=None):
     parts=[]
     for ref in evidence:
         source=sources.get(ref.get("id"),{})
         if source.get("source","").lower().endswith(".xlsx") and source.get("location","").endswith((":format",":formula")):
             continue
         parts.append(ref.get("quote",""))
-    literal={(ref.get("id"),ref.get("quote")) for ref in evidence}
+    literal={(ref.get("id"),ref.get("quote")) for ref in (evidence if header_evidence is None else header_evidence)}
     for ref in evidence:
         pair=units.get(ref.get("id"))
         if pair:
@@ -438,17 +438,17 @@ def write_paper_cards(output, notes, comparisons, errors, boundaries):
     write(output/"paper-cards.json",{"papers":papers,"comparisons":comparisons_out,"unassigned_boundaries":unassigned})
 
 
-def render(mode, index, plan, output):
+def render(mode, index, plan, output, word=False, preview=False):
     sources={r["id"]:r for r in index["sources"]}
     sheet_units=spreadsheet_units(index["sources"])
     table_groups=table_context(index)
     report={"mode":mode,"issues":[],"sections":[],"claims":0,"evidence_checks":0,"unresolved":[]}
     lookup=[]; paragraphs=[]; anchors={}; keywords=defaultdict(list); used=set(); ids=set()
-    card_notes={}; note_boundaries=[]
+    card_notes={}; note_boundaries=[]; word_sections=[]; audited_params=[]
     for section in plan["sections"]:
-        title=section["title"]; section_text=[]; report["sections"].append(title)
+        title=section["title"]; section_text=[]; report["sections"].append(title); word_groups=[]
         for group in section.get("paragraphs",[]):
-            sentences=[]
+            sentences=[]; word_group=[]
             for row in group:
                 key=row["id"]; kind=row["role"]; body=row["text"]
                 if key in ids: report["issues"].append({"claim":key,"issue":"duplicate id"})
@@ -513,8 +513,12 @@ def render(mode, index, plan, output):
                         body=("读者解读：" if plan.get("language","").startswith("zh") else "Reader’s interpretation — ")+body
                     sentences.append(body+(" 〔"+locs+"〕" if locs else ""))
                 else: sentences.append(body)
+                if word or preview:
+                    word_group.append((body,ev))
             if sentences:
                 section_text.append(("" if plan.get("language") in {"zh","zh-CN"} else " ").join(sentences))
+            if word_group: word_groups.append(word_group)
+        if word_groups: word_sections.append((title,word_groups))
         if section_text:paragraphs.extend(["## "+title,*section_text])
     artifacts={"notes":"notes.md","introduction":"introduction.md","methods":"methods.md"}
     atomic_text(output/artifacts[mode],"\n\n".join(paragraphs)+"\n")
@@ -574,7 +578,7 @@ def render(mode, index, plan, output):
                 report["issues"].append({"parameter":r.get("name"),"candidate":value,**scope_issue})
                 r["value"]=None
                 r["value_status"]="unsupported_group"
-            quotes=evidence_quantities_text(value_refs,sheet_units,sources)
+            quotes=evidence_quantities_text(value_refs,sheet_units,sources,header_evidence=ev)
             match=(not absent_measurements(measured,quotes) if quantities(measured) else bool(value) and value in quotes)
             if unit_issue and len(quantities(value))==1:
                 match=any(number==quantities(value)[0][0] for number,_,_ in quantities(quotes))
@@ -592,10 +596,15 @@ def render(mode, index, plan, output):
         write(output/"reproduction.json",plan.get("reproduction",{}))
     report["sources_used"]=sorted(used);report["status"]="partial" if report["issues"] else "complete"
     write(output/"audit.json",report)
+    if word or preview:
+        from manuscript_word import export
+        export(mode,plan,word_sections,audited_params,sources,(output/artifacts[mode]).with_suffix(".docx"),preview)
     return report
 
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("mode",choices=ROLES);p.add_argument("index");p.add_argument("plan");p.add_argument("out",type=Path);p.add_argument("--strict",action="store_true")
-    a=p.parse_args();r=render(a.mode,read(a.index),read(a.plan),a.out);print(f"{r['claims']} claims; {len(r['issues'])} review items")
+    p.add_argument("--word",action="store_true",help="write an editable manuscript with linked source passages")
+    p.add_argument("--preview",action="store_true",help="render the editable manuscript as PDF with LibreOffice")
+    a=p.parse_args();r=render(a.mode,read(a.index),read(a.plan),a.out,a.word,a.preview);print(f"{r['claims']} claims; {len(r['issues'])} review items")
     if a.strict and r["issues"]:raise SystemExit(1)

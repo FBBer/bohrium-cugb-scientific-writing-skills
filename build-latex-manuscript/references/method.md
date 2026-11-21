@@ -21,3 +21,13 @@ python3 "$S/scripts/build.py" /app/work/project main.tex /app/output/latex-build
 主文件尚未确定时可传 auto。程序会核实项目内的 % !TeX root 目标和 documentclass，忽略注释示例。有多个可能源稿会列出候选名，此时按题面指定的目标用相对路径编译。
 
 project_inputs.files 取自 TeX 实际写出的 .fls 和文献后端日志，路径相对 source/。source_diagnostics 将带行号的错误对应到原件，可直接找到被主稿载入的章节。保留原始 compile.log 以查找跨文件警告。
+
+## 把成稿迁入模板
+
+选模板中实际存在的完整行，插入点可在主文件或子章节。以下把 results.tex 正文片段放入 chapters/paper.tex 中讨论章节之前，图以正文所引用的相对路径一起交付。
+
+```sh
+python3 "$S/scripts/transfer.py" template chapters/paper.tex results.tex output --before-line '\section{Discussion}' --asset plot.pdf figures/plot.pdf
+```
+
+要替换两个已有标记之间的草稿，使用 `--between '% results begin' '% results end'`。姓名、模板导言和参考文献写法沿用原工程。source/ 是可继续编辑的完整工程，changes.diff 列出正文改动，migration.json 保存移入的正文与附件指纹。模板出现两个同名段落时，选择更明确的边界或具体的章节文件。

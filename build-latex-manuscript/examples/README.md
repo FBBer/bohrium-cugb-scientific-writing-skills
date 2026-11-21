@@ -25,3 +25,11 @@ python3 scripts/build.py project main.tex output/latex-build
 output/latex-build/manuscript.pdf、source/ 和 compile.log。源码与 PDF 配套保存。
 
 [完整用法和输入格式](../SKILL.md)
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+用样例模板已有的 gain 公式标签，把一段单独的正文迁入模板并重新编译。
+
+```sh
+python3 scripts/transfer.py my-example/input/project main.tex examples/body-fragment.tex migrated --before-line '\end{document}'
+```

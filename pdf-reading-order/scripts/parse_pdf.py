@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 from casework import write, atomic_text
+from atlas import file_digest
 
 
 def three_column_order(lines, width):
@@ -485,7 +486,7 @@ def run(path,dest,language):
             pages=poppler_pages(path)
         else:
             raise ValueError("requires PyMuPDF or Poppler pdftotext")
-        result={"file":path.name,"coordinate_system":"PDF points from the top left of the unrotated page; physical pages start at 1","pages":[],"issues":[],"status":"success"}
+        result={"file":path.name,"source_sha256":file_digest(path),"coordinate_system":"PDF points from the top left of the unrotated page; physical pages start at 1","pages":[],"issues":[],"status":"success"}
         margins=defaultdict(set)
         with tempfile.TemporaryDirectory() as temp:
             for n,(width,height,lines,images,tables) in enumerate(pages,1):

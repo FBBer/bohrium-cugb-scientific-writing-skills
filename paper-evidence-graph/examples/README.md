@@ -25,3 +25,7 @@ python3 scripts/graph.py work/sources.json work/graph-plan.json output
 output/graph.graphml、queries.json 和 figures/。查询结果附原句与位置。
 
 [完整用法和输入格式](../SKILL.md)
+
+自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+
+可将同段中的 `At sunrise, Prism A uses Lens B. At dusk, Prism A uses Lens B.` 写入测试材料。在关系 evidence 内引用同句并给 `"prefix":"At dusk, "`；导出的查询路径会保留这一次出现的位置与左右文。
