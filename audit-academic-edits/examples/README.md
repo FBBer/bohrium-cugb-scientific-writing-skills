@@ -25,3 +25,5 @@ python3 scripts/prose.py edit work/segments.json work/edits.json output --strict
 output/revised.md 和 audit.json。数值或否定范围出现疑点时，会把候选稿单独保存。
 
 [完整用法和输入格式](../SKILL.md)
+
+需要实际的 Word 文件及 PDF 预览时，在本工具的 prose.py 命令后加 `--word --preview`。Word 使用 python-docx，PDF 使用 LibreOffice。

@@ -23,6 +23,35 @@ ENGINE_NAMES = {"xetex": "xelatex", "xelatex": "xelatex", "luatex": "lualatex", 
 MARKER = "build-latex-manuscript\n"
 
 
+DOCUMENT_CLASS = re.compile(r"\\documentclass\s*(?:\[[^\]]*\]\s*)?\{([^{}]+)\}")
+TEX_ROOT = re.compile(r"(?im)^\s*%\s*!\s*TEX\s+root\s*=\s*(.+?)\s*$")
+
+
+def discover_main(project):
+    candidates, independent, directives = set(),set(),set()
+    for file in sorted(project.rglob("*.tex")):
+        rel = file.relative_to(project)
+        if file.is_symlink() or any(part.startswith(".") for part in rel.parts):
+            continue
+        content = file.read_text(encoding="utf-8",errors="replace")
+        for hint in TEX_ROOT.finditer(content):
+            resolved = (file.parent / hint[1].strip().strip('"')).resolve()
+            if resolved.is_relative_to(project) and resolved.is_file():
+                directives.add(resolved.relative_to(project))
+        # Ignore commented examples and documentation after the end of the TeX input.
+        code = re.sub(r"(?<!\\)%[^\n]*","",content)
+        code = re.split(r"\\(?:begin\s*\{document\}|endinput)",code,maxsplit=1)[0]
+        decl = DOCUMENT_CLASS.search(code)
+        if decl:
+            (independent if decl[1].strip() in {"subfiles","standalone"} else candidates).add(rel)
+    verified = (candidates | independent) & directives
+    choices = verified or candidates or independent
+    if len(choices)!=1:
+        names=", ".join(p.as_posix() for p in sorted(choices)) or "none"
+        raise ValueError("select the intended master .tex file explicitly; candidates: "+names)
+    return next(iter(choices))
+
+
 def engine_for(path):
     text = path.read_text(encoding="utf-8", errors="replace")
     directive = MAGIC.search(text)
@@ -125,7 +154,8 @@ def compile_once(tool, main, source, pdf, directory=Path(".")):
 
 
 def build(project, main, out, engine=None):
-    project, out, rel = project.resolve(), out.resolve(), Path(main)
+    project, out = project.resolve(), out.resolve()
+    rel = discover_main(project) if str(main)=="auto" and not (project/"auto").is_file() else Path(main)
     if rel.is_absolute() or ".." in rel.parts or not (project / rel).is_file():
         raise ValueError("main must be a file inside the source project")
     if out == project or project in out.parents or out in project.parents:
@@ -206,7 +236,7 @@ def build(project, main, out, engine=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project", type=Path)
-    parser.add_argument("main")
+    parser.add_argument("main",help="project-relative manuscript path, or auto to resolve a unique master")
     parser.add_argument("out", type=Path)
     parser.add_argument("--engine", choices=list(FLAGS))
     args = parser.parse_args()

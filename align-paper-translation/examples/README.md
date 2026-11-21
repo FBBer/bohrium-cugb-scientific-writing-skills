@@ -25,3 +25,5 @@ python3 scripts/prose.py translate work/segments.json work/translation.json outp
 output/bilingual.md。严格模式遇到需复核的译稿时保存在 candidate-bilingual.md，原因在 audit.json。
 
 [完整用法和输入格式](../SKILL.md)
+
+需要实际的 Word 文件及 PDF 预览时，在本工具的 prose.py 命令后加 `--word --preview`。Word 使用 python-docx，PDF 使用 LibreOffice。

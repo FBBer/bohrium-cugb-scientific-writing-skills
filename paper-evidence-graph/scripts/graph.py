@@ -156,7 +156,43 @@ def dataset(index,plan,previous=None):
 def unique(rows):
     return list({json.dumps(r,sort_keys=True,ensure_ascii=False):r for r in rows}.values())
 
+def query_paths(graph, spec, refs):
+    """Follow a declared predicate sequence in the cited direction without inferring a new edge."""
+    steps = spec["steps"]
+    if not isinstance(steps,list) or not 1 <= len(steps) <= 6:
+        raise ValueError("a path query needs between one and six ordered steps")
+    nodes = {n["id"]:n for n in graph["nodes"]}
+    by_source = collections.defaultdict(list)
+    for edge in graph["edges"]:
+        by_source[edge["source"]].append(edge)
+    for step in steps:
+        if not isinstance(step,dict) or not step.get("predicate") or set(step) - {"predicate","strength","polarity","scope","target_type"}:
+            raise ValueError("each path step needs a predicate and supported qualifiers")
+    start, finish = (refs.get(spec.get(key),spec.get(key)) for key in ("from","to"))
+    if start is None:
+        raise ValueError("supply the starting entity for a directed path query")
+    paths = [([start], [])] if start in nodes else []
+    for step in steps:
+        qualified = {"strength":"direct","polarity":"positive",**step}
+        target_type = qualified.pop("target_type",None)
+        paths = [(ids + [edge["target"]], route + [edge])
+                 for ids,route in paths for edge in by_source[ids[-1]]
+                 if edge["target"] not in ids and (not target_type or nodes[edge["target"]]["type"]==target_type)
+                 and all(edge.get(k)==v for k,v in qualified.items())]
+    if finish is not None:
+        paths = [(ids,edges) for ids,edges in paths if ids[-1]==finish]
+    route_rows = [{"nodes":ids, "steps":[{"edge":e["id"],"predicate":e["predicate"],"evidence":e["evidence"]} for e in edges]}
+                  for ids,edges in paths]
+    return {"question":spec["question"], "filters":{k:v for k,v in spec.items() if k!="question"},
+            "paths":route_rows, "nodes":sorted({node for ids,_ in paths for node in ids}),
+            "edges":list(dict.fromkeys(edge["id"] for _,edges in paths for edge in edges)),
+            "evidence":unique([ev for _,edges in paths for e in edges for ev in e["evidence"]]),
+            "status":"supported_matches" if paths else "no_supported_match_in_sources"}
+
+
 def query(graph,spec,refs):
+    if "steps" in spec:
+        return query_paths(graph,spec,refs)
     nodes={n["id"]:n for n in graph["nodes"]}; hits=[]
     for e in graph["edges"]:
         fields=spec.get("where",{})

@@ -17,3 +17,7 @@ python3 "$S/scripts/prose.py" edit /app/work/segments.json /app/work/edits.json 
 从原文到修订稿和反向各读一次，确认每个引用、数字、图表指向与研究对象仍匹配。交付完整干净稿、改动表、术语约定和未决问题。将实际案例输出写入需求指定字段。
 
 常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+
+需要 Word 时追加 --word（依赖 python-docx）。revised.docx 是清稿，tracked.docx 使用 Word 原生插入与删除，分别接受或拒绝可恢复改文或原文。--original-docx 把可定位的普通段落改在原件副本中，保留其他段落、正文样式、表格、脚注和附件。待改段内含公式、字段或超链接时应在原件中编辑该处；原文件不会被覆盖。用 LibreOffice 导出并检查要求的 PDF 预览。
+
+需要同时查看 PDF 时追加 `--preview`，程序用 LibreOffice 渲染实际 Word 文件。中文页面在可用时加载当前机器的中文字体。

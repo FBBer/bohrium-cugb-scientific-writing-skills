@@ -97,12 +97,85 @@ def pdf_parts(path):
             yield n, page.extract_text() or ""
 
 
+MATH = "{http://schemas.openxmlformats.org/officeDocument/2006/math}"
+ALT = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
+LEVEL_TEXT = {"superscript": str.maketrans("0123456789+-−=()", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻⁼⁽⁾"),
+              "subscript": str.maketrans("0123456789+-−=()", "₀₁₂₃₄₅₆₇₈₉₊₋₋₌₍₎")}
+
+
+def script_text(value, level):
+    if not value:
+        return ""
+    if re.fullmatch(r"[0-9+−=()\-]+", value):
+        return value.translate(LEVEL_TEXT[level])
+    return ("^(" if level == "superscript" else "_(") + value + ")"
+
+
+def math_text(node):
+    """Linear reading for common native Word equations; retain an explicit marker for other constructs."""
+    if node is None:
+        return ""
+    name = node.tag.rsplit("}", 1)[-1]
+    if name.endswith("Pr") or not node.tag.startswith(MATH):
+        return ""
+    part = lambda tag: math_text(node.find(MATH + tag))
+    if name == "t":
+        return node.text or ""
+    if name == "f":
+        return "(" + part("num") + ")/(" + part("den") + ")"
+    if name in {"sSub", "sSup", "sSubSup", "sPre"}:
+        low = script_text(part("sub"), "subscript")
+        high = script_text(part("sup"), "superscript")
+        return low + high + part("e") if name == "sPre" else part("e") + low + high
+    if name == "rad":
+        degree = part("deg")
+        return ("root[" + degree + "]" if degree else "√") + "(" + part("e") + ")"
+    if name == "d":
+        def delim(tag, default):
+            elem = node.find(MATH + "dPr/" + MATH + tag)
+            return elem.get(MATH + "val", default) if elem is not None else default
+        return delim("begChr", "(") + delim("sepChr", "|").join(math_text(e) for e in node.findall(MATH+"e")) + delim("endChr", ")")
+    if name in {"oMath", "oMathPara", "r", "num", "den", "e", "sub", "sup", "deg"}:
+        return "".join(math_text(child) for child in node)
+    return "⟦OMML:" + name + "⟧"
+
+
+def word_text(node):
+    if node.tag in {W+"del", W+"moveFrom", W+"instrText", W+"delText", W+"pPr", W+"rPr"}:
+        return ""
+    if node.tag in {MATH+"oMath", MATH+"oMathPara"}:
+        return math_text(node)
+    if node.tag == ALT+"AlternateContent":
+        choices = node.findall(ALT+"Choice")
+        first = next((part for part in choices if part.find(".//"+MATH+"oMath") is not None), None)
+        if first is None:
+            first = node.find(ALT+"Fallback")
+        if first is None and choices:
+            first = choices[0]
+        return word_text(first) if first is not None else ""
+    if node.tag == W+"t":
+        return node.text or ""
+    if node.tag in {W+"br", W+"cr", W+"tab", W+"noBreakHyphen"}:
+        return {W+"br":"\n", W+"cr":"\n", W+"tab":"\t", W+"noBreakHyphen":"‑"}[node.tag]
+    content = "".join(word_text(child) for child in node)
+    if node.tag == W+"r" and content:
+        setting = node.find(W+"rPr/"+W+"vertAlign")
+        level = setting.get(W+"val") if setting is not None else None
+        if level in LEVEL_TEXT:
+            return script_text(content,level)
+    return content
+
+
 def office_parts(path):
     with zipfile.ZipFile(path) as archive:
         if path.suffix.lower() == ".docx":
             tree = ET.fromstring(archive.read("word/document.xml"))
+            note_links = collections.defaultdict(list)
             for i, p in enumerate(tree.iter(W+"p"), 1):
-                s = "".join(t.text or "" for t in p.iter(W+"t"))
+                for kind in ("footnote","endnote"):
+                    for marker in p.iter(W+kind+"Reference"):
+                        note_links[kind,marker.get(W+"id")].append(i)
+                s = word_text(p)
                 if s.strip():
                     yield f"word/document.xml:p{i}", s
             for table_number, table in enumerate(tree.iter(W+"tbl"), 1):
@@ -116,11 +189,24 @@ def office_parts(path):
                         end = f"-C{column+width-1}" if width > 1 else ""
                         location = f"word/document.xml:tbl{table_number}:R{row_number}:C{column}{end}"
                         paragraphs_in_cell = cell.findall(W+"p")
-                        cell_text = "\n".join("".join(t.text or "" for t in p.iter(W+"t"))
-                                                for p in paragraphs_in_cell).strip()
+                        cell_text = "\n".join(word_text(p) for p in paragraphs_in_cell).strip()
                         if cell_text:
                             yield location, cell_text
                         column += width
+            for notes in ("footnotes", "endnotes"):
+                member = "word/" + notes + ".xml"
+                if member not in archive.namelist():
+                    continue
+                for note in ET.fromstring(archive.read(member)):
+                    if note.get(W+"type") in {"separator", "continuationSeparator", "continuationNotice"}:
+                        continue
+                    number = note.get(W+"id")
+                    for i, para in enumerate(note.iter(W+"p"), 1):
+                        text = word_text(para)
+                        if text.strip():
+                            yield f"{member}:{number}:p{i}", text
+                            for owner in note_links[notes[:-1],number]:
+                                yield f"word/document.xml:p{owner}/{notes[:-1]}:{number}:p{i}", text
             return
         if path.suffix.lower() == ".pptx":
             for member in sorted(archive.namelist()):

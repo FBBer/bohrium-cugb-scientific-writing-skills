@@ -66,6 +66,22 @@ def modality(item,evidence):
     return summary,None
 
 
+def relation_terms(item, source_editions):
+    terms = {}
+    for role in ("subject","predicate","object"):
+        explicit = item.get(role+"_iri")
+        if explicit is not None:
+            if not isinstance(explicit,str) or not re.fullmatch(r'(?:https?://[^/\s]+/[^\s]*|urn:[a-zA-Z0-9][a-zA-Z0-9-]*:[^\s]+)',explicit) or re.search(r'[<>"{}|^\x60\\\x00-\x20]',explicit):
+                raise ValueError("invalid "+role+"_iri")
+            terms[role]=explicit
+        else:
+            # Identical labels without a shared supplied identifier do not merge across independent sources.
+            identity = [item[role].strip(), item["scope"], source_editions]
+            namespace = "predicate:" if role=="predicate" else "entity:"
+            terms[role] = "urn:scholar:" + namespace + digest(identity)
+    return terms
+
+
 def export(index,record,out):
     sources={s["id"]:s for s in index["sources"]};blocks=[];accepted=[];issues=[];seen=set()
     meta=record.get("papers",{})
@@ -93,7 +109,12 @@ def export(index,record,out):
         if item.get("reason"):payload["reason"]=item["reason"]
         bindings=sorted((sources[e["id"]]["source"],sources[e["id"]]["location"],e["quote"]) for e in evidence)
         source_editions={source:meta.get(source,{}) for source,_,_ in bindings}
-        sid=digest([payload,qualifiers["source_cues"],bindings,source_editions,record.get("publication",{})])
+        try:
+            terms = relation_terms(item, source_editions)
+        except ValueError as exc:
+            issues.append({"id":key,"reasons":[str(exc)]})
+            continue
+        sid=digest([payload,terms,qualifiers["source_cues"],bindings,source_editions,record.get("publication",{})])
         if sid in seen: continue
         seen.add(sid)
         base="np:"+sid
@@ -103,7 +124,13 @@ def export(index,record,out):
         fields=" ; ".join("c:"+k+" "+literal(v) for k,v in payload.items())
         for cue in qualifiers["source_cues"]:
             fields+=" ; c:source_modality "+literal(cue)
-        graphs.append(f"{a} {{ {claim} a c:QualifiedClaim ; {fields} . }}")
+        subject, predicate, obj = ("<"+terms[role]+">" for role in ("subject","predicate","object"))
+        reification = f"{claim} a c:QualifiedClaim, rdf:Statement ; rdf:subject {subject} ; rdf:predicate {predicate} ; rdf:object {obj} ; {fields} ."
+        # A reified description does not assert its triple. Assert the scoped relation only for direct positive observations.
+        triples = [reification]
+        if item["polarity"]=="positive" and item["evidence_type"]=="direct" and qualifiers["claim_strength"]=="reported":
+            triples.append(f"{subject} {predicate} {obj} .")
+        graphs.append(a + " { " + " ".join(triples) + " }")
         triples=[]
         for j,(source,location,fragment) in enumerate(bindings,1):
             ev=uri(base+f":e{j}");document=uri("doc:"+quote(source,safe="")+":"+digest(source_editions[source]))
@@ -118,7 +145,7 @@ def export(index,record,out):
         for attr in ("creator","created","hasVersion","license"):
             if record.get("publication",{}).get(attr): info.append(f"{n} dct:{attr} {literal(record['publication'][attr])} .")
         graphs.append(i+" { "+" ".join(info)+" }");blocks.extend(graphs)
-        accepted.append({**item,**qualifiers,"nanopub_id":"urn:scholar:"+base})
+        accepted.append({**item,**qualifiers,"relation_iris":terms,"nanopub_id":"urn:scholar:"+base})
     atomic_text(out/"nanopubs.trig",PREFIX+"\n\n"+"\n\n".join(blocks)+"\n")
     write(out/"assertions.json",{"claims":accepted,"source_metadata":meta,"unresolved":issues})
     return accepted,issues

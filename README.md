@@ -17,4 +17,4 @@
 
 进入选定的作品目录，运行 `python3 examples/demo.py ./my-example`，然后打开 `my-example/output/reading.html`。每份示例还会输出该题的可编辑文件与原始记录。需要直接用自己的论文时，按相应工具说明传入材料。
 
-Python 3.9 及以上可运行文本处理工具。PDF 解析使用 PyMuPDF 或 Poppler，扫描区域识别另需 Tesseract 和相应语种数据。LaTeX 需要与原模板匹配的引擎及宏包，BibTeX 输入可用 Pandoc 读取。
+Python 3.9 及以上可运行文本处理工具。PDF 解析使用 PyMuPDF 或 Poppler，扫描区域识别另需 Tesseract 和相应语种数据。LaTeX 需要与原模板匹配的引擎及宏包，BibTeX 输入可用 Pandoc 读取。翻译和润色可输出 Word 双语稿或原生修订，用 python-docx 生成，以 LibreOffice 渲染 PDF。

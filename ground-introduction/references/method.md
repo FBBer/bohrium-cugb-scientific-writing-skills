@@ -23,3 +23,5 @@ python3 "$S/scripts/compose.py" introduction /app/work/sources.json /app/work/in
 将每个研究空白连回前文比较，将每个贡献连回本文的方法、结果或图表。输出真正可独立阅读的引言和相关工作正文、比较矩阵、论断—引文对应表及未决信息。表中的技术说明留给核验者，正文保持连贯。
 
 常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+
+比较时将同一句里的两个研究对象和实验条件分别放入 bindings；subject_in_source 与 condition_in_source 须在同一来源子句。翻译并重排时可用 subject_in_text 标出中文稿里的对象。数值读自表格时连同相应列头一起引用；写比值前核对分子、分母及对象顺序。

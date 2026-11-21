@@ -22,3 +22,5 @@ python3 "$S/scripts/compose.py" methods /app/work/sources.json /app/work/methods
 核对正文、参数表和运行记录中的数值、单位与归属，核查百分数的分母。对不需要或缺失的统计量注明该判断的依据。交付 methods.md、parameters.json、reproduction.json 与论断—证据表，按给定案例输出契约填入提交结果。
 
 结构化 YAML 解析可用 python3 -m pip install PyYAML，本地实测 6.0.3。纯文本键值、JSON 和 CSV 使用 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+
+当参数的 evidence 含配置和实测日志时，selected_evidence 值是其中一项完整的 {id,quote}；最终值要能在选定的那一条得到。做比值、均值与单位换算时可分别引用 Word 或 Excel 数据格及对应列头，把表示单位的原表头也列入 evidence。

@@ -15,3 +15,5 @@ python3 "$S/scripts/parse_pdf.py" "/input/实际文件.pdf" "/app/work/layout.js
 抽查第一页、末页、栏切换页、跨页表和不确定符号的裁片，逐项核对对象数、文本顺序、行列归属。统计已检查页、表格数、未决行。将可编辑解析结果、目录、问题答案及对应页框放到指定字段，附原稿位置。文字层检查无法验证公式时保留裁片。
 
 独立环境可安装 Python 包 PyMuPDF（本地实测 2.1），或系统 Poppler 的 pdftotext/pdftoppm；OCR 实测 Tesseract 5.5.2，需要对应的语言数据。用 python3 -m pip install PyMuPDF 安装到运行脚本的同一个解释器，然后先执行 python3 -c "import pymupdf"。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+
+续表仅按原文明确的续表标签、连续物理页与兼容列建立。表号相同但列头从压力变为温度时，保留独立分段。极窄的空白线框可以作为分隔线，原页的完整格网仍在 rows、row_cells 里。

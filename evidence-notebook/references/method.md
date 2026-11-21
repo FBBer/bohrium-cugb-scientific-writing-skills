@@ -19,3 +19,5 @@ python3 "$S/scripts/compose.py" notes /app/work/sources.json /app/work/notes-pla
 检查来源映射中的每一条引文，重点检查主要发现、方法边界以及结论可能失效的条件。paper-cards.json 按论文列出原文事实、解释与局限。作者的解释用 interpretation 角色；读者推断用 inference 状态，并列理由及所据原句。要比较两篇论文，在计划的 comparisons 中填写 left 和 right（两个笔记 ID）、axis、comparability（comparable、conditional 或 not_comparable）和 reason，写清对象、条件、指标或分辨率的差别。交付可读笔记、论文卡片、主题索引和主张溯源表，并在 case 的字段中给出真实卡片和未决项。
 
 常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+
+Word 原生分式按分子和分母线性表达，上下标保留。附注使用自身编号或正文引用段的位置。表内计算时同时引用数值格和其对应列头；跨语言重排同组条件时，bindings 可给 subject_in_text，标明改写后对应的样品。paper-cards.json 的 boundaries 收录有来源的冲突或不确定项。

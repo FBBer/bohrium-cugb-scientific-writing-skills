@@ -17,3 +17,7 @@ python3 "$S/scripts/prose.py" translate /app/work/segments.json /app/work/transl
 输出 bilingual.md、可复用术语表和复核记录，写明每一处纠正、不能确定的读法及句号/页码。段落覆盖率以实际源段清单为分母；译段重复或空缺必须定位。按原契约补齐 JSON，禁止以摘要代替译文。
 
 常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+
+需要 Word 时追加 --word（依赖 python-docx）。bilingual.docx 依次列出段号或位置、原句和译句。长段可自然跨页，表头在后页重复。按本题需要用 LibreOffice 导出 PDF，并打开原始页查看图注、公式与分页。已有模板中的复杂对象应在原件中保留。
+
+需要同时查看 PDF 时追加 `--preview`，程序用 LibreOffice 渲染实际 Word 文件。中文页面在可用时加载当前机器的中文字体。

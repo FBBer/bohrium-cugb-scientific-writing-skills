@@ -13,7 +13,10 @@ ROLES={
     "notes":{"question","data","method","finding","limitation","definition","context","interpretation"},
     "introduction":{"background","comparison","gap","objective","contribution","scope"},
     "methods":{"procedure","data","split","parameter","evaluation","baseline","environment","repetition","limitation"}}
-NUMBER=re.compile(r"(?<![A-Za-z0-9_.])([+−-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+−-]?\d+)?)(?:[ \t]*(%|‰|°C|°F|dBm|dB|[kMGTcmunμµ]?(?:Hz|Pa|V|W|A|K|J|g|m|s|L|F|N|T|mol)(?:/[kcmunμµ]?(?:s|m|L|g)(?:[²³23])?)?)(?![A-Za-z]))?")
+UNIT_POWER = r"(?:[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+|\^(?:\{[+−-]?\d+\}|[+−-]?\d+))?"
+UNIT_ATOM = r"(?:°[CF]|dBm|dB|[kMGTcmunμµ]?(?:Hz|Pa|V|W|A|K|J|g|m|s|L|F|N|T|mol))"+UNIT_POWER
+UNIT = r"(?:%|‰|"+UNIT_ATOM+r"(?:(?:[ \t]*[/·⋅][ \t]*|[ \t]+)"+UNIT_ATOM+r")*(?![A-Za-z]))"
+NUMBER = re.compile(r"(?<![A-Za-z0-9_.])([+−-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+−-]?\d+)?)(?:[ \t]*("+UNIT+r"))?")
 def quantities(text):
     return [(Decimal(m[1].replace("−","-")),(m[2] or "").replace("µ","μ"),m[0].strip()) for m in NUMBER.finditer(text)]
 
@@ -115,7 +118,7 @@ SI_UNIT = re.compile(r"([TGMkcmuμn]?)(Hz|Pa|V|W|A|K|J|g|m|s|L|F|N|T|mol)")
 SI_EXPONENT = {"T":12,"G":9,"M":6,"k":3,"":0,"c":-2,"m":-3,"u":-6,"μ":-6,"n":-9}
 
 
-def derived_measurement(written,evidence,calculation):
+def derived_measurement(written,evidence,calculation,cell_units=None):
     """Verify an explicit unit conversion or two-input calculation against cited quantities."""
     if not isinstance(calculation,dict) or not isinstance(calculation.get("inputs"),list):
         return False
@@ -133,7 +136,13 @@ def derived_measurement(written,evidence,calculation):
         except DecimalException:
             return False
         unit=str(term["unit"]).strip().replace("µ","μ")
+        literal = {(e.get("id"), e.get("quote")) for e in evidence}
         available={pair[:2] for e in evidence if e.get("id")==term["id"] for pair in quantities(e.get("quote",""))}
+        cell = (cell_units or {}).get(term["id"])
+        if cell:
+            raw, header_id, header, readings = cell
+            if (term["id"],raw) in literal and (header_id,header) in literal:
+                available.update(pair[:2] for reading in readings for pair in quantities(reading))
         if (value,unit) not in available:return False
         measured.append((value,unit))
     if operation=="convert_unit":
@@ -198,13 +207,83 @@ def parameter_unit_issue(row, unit, evidence):
         return None
     return {"parameter":row.get("name"),"issue":"dimensionless unit needs an explicit source or dimensional derivation","unit":unit}
 
+SOURCE_CLAUSES = re.compile(r"[;；。！？!?]|(?<!\d)\.(?=\s+[A-Z]|$)|(?<=\d)\.(?=\s+[A-Z]|$)|\b(?:whereas|while|but)\b|但是|然而|而(?=另一|第|样|試|试|组|对照)", re.I)
+
+
+def bound_clause(quote, subject, condition):
+    if not all(isinstance(x, str) and x.strip() for x in (quote, subject, condition)):
+        return False
+    def has(phrase, clause):
+        phrase = phrase.strip()
+        start = r"(?<![A-Za-z0-9])" if re.match(r"[A-Za-z0-9]", phrase) else ""
+        end = r"(?![A-Za-z0-9])" if re.search(r"[A-Za-z0-9]$", phrase) else ""
+        return bool(re.search(start + re.escape(phrase) + end, clause, re.I))
+    return any(has(subject, clause) and has(condition, clause) for clause in SOURCE_CLAUSES.split(quote))
+
+
+SYMBOL = r"[A-Za-zα-ωΑ-Ω](?:[A-Za-z0-9₀-₉]*)(?:_(?:\{[A-Za-z0-9]+\}|[A-Za-z0-9]+))?"
+SIMPLE_RATIO = re.compile(r"(?<![A-Za-z0-9_/])("+SYMBOL+r")\s*=\s*\(?\s*("+SYMBOL+r")\s*\)?\s*/\s*\(?\s*("+SYMBOL+r")(?![A-Za-z0-9₀-₉_])")
+
+
+def reversed_definition(text, original):
+    def symbol(key):
+        return unicodedata.normalize("NFKC",key).replace("_","").replace("{","").replace("}","")
+    definitions = {(symbol(a),symbol(b),symbol(c)) for a,b,c in SIMPLE_RATIO.findall(original)}
+    return any(b!=c and (a,c,b) in definitions and (a,b,c) not in definitions
+               for a,b,c in (tuple(map(symbol,m)) for m in SIMPLE_RATIO.findall(text)))
+
+
+def verify_target_bindings(bindings, body):
+    groups = defaultdict(list)
+    for binding in bindings:
+        amount = str(binding.get("condition_in_source") or "")
+        quantity = quantities(amount)
+        if len(quantity)!=1 or quantity[0][2]!=amount.strip() or not quantity[0][1]:
+            continue
+        groups[(binding.get("id"),binding.get("quote",""))].append((binding,quantity[0][:2]))
+    for (_, passage), pairs in groups.items():
+        if len(pairs)<2 or len({q for _,q in pairs})!=len(pairs):
+            continue
+        source_seq = [q[:2] for q in quantities(passage)]
+        target_seq = [q[:2] for q in quantities(body)]
+        if not all(source_seq.count(q)==1 and target_seq.count(q)==1 for _,q in pairs):
+            continue
+        anchored = True
+        for binding,q in pairs:
+            name = binding.get("subject_in_text") or binding.get("subject_in_source")
+            spans = [clause for clause in re.split(r"[，；。;]|,(?!\d)|\b(?:whereas|while|but)\b",body,flags=re.I)
+                     if name and re.search(re.escape(name),clause,re.I)]
+            if len(spans)==1:
+                if q not in [z[:2] for z in quantities(spans[0])]:
+                    return "target assigns the cited measurement to a different named subject"
+            else:
+                anchored = False
+        values={q for _,q in pairs}
+        if not anchored and [q for q in source_seq if q in values]!=[q for q in target_seq if q in values]:
+            return "verify reordered measurements against their subjects; give subject_in_text for a translated or reordered clause"
+    return None
+
+
+def binding_errors(bindings, evidence, source_rows):
+    problems = []
+    for binding in bindings:
+        ref = {"id":binding.get("id"), "quote":binding.get("quote")}
+        if ref not in evidence or check_evidence([ref], source_rows):
+            problems.append({"issue":"unverified attribution anchor"})
+            continue
+        pair = [binding.get("subject_in_source",""),binding.get("condition_in_source","")]
+        if not bound_clause(ref["quote"], *pair):
+            problems.append({"issue":"subject and condition do not share the asserted source clause","terms":pair,"anchor":ref["id"]})
+    return problems
+
+
 def tabular(header, rows):
     stream=io.StringIO()
     w=csv.writer(stream,delimiter="\t",lineterminator="\n")
     w.writerow(header);w.writerows(rows)
     return stream.getvalue()
 
-def write_paper_cards(output, notes, comparisons, errors):
+def write_paper_cards(output, notes, comparisons, errors, boundaries):
     papers={}
     for key,note in notes.items():
         for name,refs in note["sources"].items():
@@ -224,7 +303,14 @@ def write_paper_cards(output, notes, comparisons, errors):
             errors.append({"comparison":row.get("axis"),"issue":"comparison needs two supported claims, scale and reason"})
             continue
         comparisons_out.append({**row,"left_sources":notes[left]["sources"],"right_sources":notes[right]["sources"]})
-    write(output/"paper-cards.json",{"papers":papers,"comparisons":comparisons_out})
+    unassigned = []
+    for entry in boundaries:
+        if not entry["sources"]:
+            unassigned.append(entry)
+        for name, refs in entry["sources"].items():
+            paper = papers.setdefault(name, {"facts":[],"interpretations":[],"limits":[]})
+            paper.setdefault("boundaries",[]).append({**entry,"evidence":refs})
+    write(output/"paper-cards.json",{"papers":papers,"comparisons":comparisons_out,"unassigned_boundaries":unassigned})
 
 
 def render(mode, index, plan, output):
@@ -232,7 +318,7 @@ def render(mode, index, plan, output):
     sheet_units=spreadsheet_units(index["sources"])
     report={"mode":mode,"issues":[],"sections":[],"claims":0,"evidence_checks":0,"unresolved":[]}
     lookup=[]; paragraphs=[]; anchors={}; keywords=defaultdict(list); used=set(); ids=set()
-    card_notes={}
+    card_notes={}; note_boundaries=[]
     for section in plan["sections"]:
         title=section["title"]; section_text=[]; report["sections"].append(title)
         for group in section.get("paragraphs",[]):
@@ -244,13 +330,8 @@ def render(mode, index, plan, output):
                 if kind not in ROLES[mode]: report["issues"].append({"claim":key,"issue":"unknown role "+kind})
                 ev=row.get("evidence",[]); state=row.get("status","supported")
                 # A valid quotation may still be attributed to the wrong study or condition.
-                for binding in row.get("bindings",[]):
-                    ref={"id":binding.get("id"),"quote":binding.get("quote")}
-                    if ref not in ev or check_evidence([ref],index["sources"]):
-                        report["issues"].append({"claim":key,"issue":"unverified attribution anchor"});continue
-                    pair=[binding.get("subject_in_source",""),binding.get("condition_in_source","")]
-                    if any(not term or term.casefold() not in ref["quote"].casefold() for term in pair):
-                        report["issues"].append({"claim":key,"issue":"subject and condition do not share the asserted source clause","terms":pair,"anchor":ref["id"]})
+                for problem in binding_errors(row.get("bindings",[]),ev,index["sources"]):
+                    report["issues"].append({"claim":key,**problem})
                 if state in {"unreported","conflict","inference","uncertain"}:
                     report["unresolved"].append({"claim":key,"status":state,"reason":row.get("reason",""),"evidence":ev})
                     if not row.get("reason"): report["issues"].append({"claim":key,"issue":"explain uncertainty or inference"})
@@ -259,13 +340,18 @@ def render(mode, index, plan, output):
                 report["evidence_checks"]+=len(ev)
                 joined=evidence_quantities_text(ev,sheet_units,sources)
                 if state=="supported":
+                    if reversed_definition(body,joined):
+                        report["issues"].append({"claim":key,"issue":"the source formula reverses the numerator and denominator of this definition"})
+                    assignment = verify_target_bindings(row.get("bindings",[]),body)
+                    if assignment:
+                        report["issues"].append({"claim":key,"issue":assignment})
                     changed_condition=condition_substitution(body,row.get("condition"),ev)
                     if changed_condition:report["issues"].append({"claim":key,**changed_condition})
                 if (mode=="methods" and kind=="parameter" and state=="supported" and explicit_dimensionless(body)
                         and (NEGATED_DIMENSION.search(joined) or not (explicit_dimensionless(joined) or supported_cancellation(row.get("unit_derivation"),joined)))):
                     report["issues"].append({"claim":key,"issue":"unit assertion needs a source or dimensional derivation"})
                 for num in absent_measurements(re.sub(r"\[[^\]]+\]","",body),joined):
-                    if not derived_measurement(num,ev,row.get("derivation")):
+                    if not derived_measurement(num,ev,row.get("derivation"),sheet_units):
                         report["issues"].append({"claim":key,"issue":"number needs source or derivation","value":num})
                 row_issues=[x for x in report["issues"] if x.get("claim")==key]
                 if row_issues:
@@ -286,6 +372,8 @@ def render(mode, index, plan, output):
                             original=sources[e["id"]]
                             refs[original["source"]].append({"location":original["location"],"quote":e["quote"]})
                     voice=("reader" if state=="inference" else "authors" if kind=="interpretation" else "paper")
+                    if state in {"unreported","conflict","uncertain"}:
+                        note_boundaries.append({"claim":key,"text":body,"status":state,"reason":row.get("reason",""),"sources":dict(refs)})
                     if refs and state not in {"unreported","conflict","uncertain"}:
                         card_notes[key]={"text":body,"role":kind,"voice":voice,"condition":row.get("condition",""),
                                          "reason":row.get("reason",""),"sources":dict(refs)}
@@ -302,17 +390,18 @@ def render(mode, index, plan, output):
     atomic_text(output/"claim-sources.tsv",tabular(["claim","section","role","status","source","location","quote","condition"],lookup))
     if mode=="notes":
         write(output/"topic-index.json",dict(sorted(keywords.items())))
-        write_paper_cards(output,card_notes,plan.get("comparisons",[]),report["issues"])
+        write_paper_cards(output,card_notes,plan.get("comparisons",[]),report["issues"],note_boundaries)
     if mode=="introduction":
         axes=[]
         for comparison in plan.get("comparisons",[]):
             evidence=comparison.get("evidence",[])
             problems=check_evidence(evidence,index["sources"]) if evidence else ["unanchored comparison"]
+            problems.extend(item["issue"] for item in binding_errors(comparison.get("bindings",[]), evidence, index["sources"]))
             if evidence and not problems:
                 quoted=evidence_quantities_text(evidence,sheet_units,sources)
                 result_text=str(comparison.get("observed_result") or "")
                 for number in absent_measurements(result_text,quoted):
-                    if not derived_measurement(number,evidence,comparison.get("derivation")):
+                    if not derived_measurement(number,evidence,comparison.get("derivation"),sheet_units):
                         problems.append("comparison result lacks source or derivation: "+number)
             if problems:
                 report["issues"].extend({"comparison":comparison.get("work"),"issue":reason} for reason in problems)
@@ -343,11 +432,17 @@ def render(mode, index, plan, output):
                 r["unit"]=None
                 r["unit_status"]="unreported"
             measured=value+(" "+unit if unit.casefold() not in UNSPECIFIED_UNITS|{"1","dimensionless","unitless","无量纲","无单位"} and unit not in value else "")
-            quotes=evidence_quantities_text(ev,sheet_units,sources)
+            selected = r.get("selected_evidence")
+            value_refs = ev
+            if selected is not None:
+                value_refs = [ref for ref in ev if ref == selected]
+                if not value_refs:
+                    report["issues"].append({"parameter":r.get("name"),"issue":"selected run evidence must be one of the verified quotations"})
+            quotes=evidence_quantities_text(value_refs,sheet_units,sources)
             match=(not absent_measurements(measured,quotes) if quantities(measured) else bool(value) and value in quotes)
             if unit_issue and len(quantities(value))==1:
                 match=any(number==quantities(value)[0][0] for number,_,_ in quantities(quotes))
-            if state in {"reported","conflict"} and r.get("value") is not None and (not ev or not match) and not derived_measurement(measured,ev,r.get("derivation")):
+            if state in {"reported","conflict"} and r.get("value") is not None and (not value_refs or not match) and not derived_measurement(measured,value_refs,r.get("derivation"),sheet_units):
                 report["issues"].append({"parameter":r.get("name"),"candidate":value,"issue":"value absent from primary evidence"})
                 r["value"]=None
                 r["value_status"]="unsupported"

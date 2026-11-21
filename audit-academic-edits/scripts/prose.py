@@ -7,10 +7,14 @@ import unicodedata
 from pathlib import Path
 from casework import read, write, atomic_text
 
+UNIT_POWER = r"(?:[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+|\^(?:\{[+−-]?\d+\}|[+−-]?\d+))?"
+UNIT_ATOM = r"(?:°[CF]|dBm|dB|[GMkhdcmunpfμµ]?(?:Hz|Pa|mol|rad|kg|g|m|s|L|K|A|W|V|J|T|F|N))" + UNIT_POWER
+MEASURE_UNIT = r"(?:%|‰|" + UNIT_ATOM + r"(?:(?:[ \t]*[/·⋅][ \t]*|[ \t]+)" + UNIT_ATOM + r")*(?![A-Za-z]))"
+
 PATTERNS = {
     "formula":r"(?<!\\)\$\$[\s\S]+?(?<!\\)\$\$|(?<!\\)\$(?:\\.|[^$\n])+?(?<!\\)\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]",
     "citation":r"\[(?:\s*\d+[a-z]?\s*(?:[,，;；–—-]\s*\d+[a-z]?\s*)*)\]|\\(?:cite\w*|ref|eqref)\{[^{}]+\}",
-    "quantity":r"(?<![A-Za-z0-9_])(?:[+\-−]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-−]?\d+)?)(?:\s*(?:±|×)\s*[+\-−]?\d+(?:\.\d+)?)?(?:\s*(?:%|‰|°C|°F|dBm|dB|[GMkhdcmunpfμµ]?(?:Hz|Pa|mol|rad|kg|g|m|s|L|K|A|W|V|J|T|F|N)(?:/[kmunμµ]?(?:s|m|L|g)(?:[²³23])?)?)(?![A-Za-z]))?",
+    "quantity": r"(?<![A-Za-z0-9_])(?:[+\-−]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-−]?\d+)?)(?:\s*(?:±|×)\s*[+\-−]?\d+(?:\.\d+)?)?(?:\s*" + MEASURE_UNIT + r")?",
 }
 FLAGS={"negative":r"\b(?:not|cannot|never|without|neither|nor|no)\b|\b(?:ca|wo|do|does|did|is|are|was|were|have|has|had|could|would|should)n['’]t\b|未|无|不(?!同|少|仅|论|管|变量|等式|锈钢|确定性)|没有|并非",
        "hedge":r"\b(?:might|may|could|suggest\w*|approximately|potential\w*|consistent with)\b|可能|提示|大约|约为|相符",
@@ -38,8 +42,20 @@ CLAUSE_BREAKS=r"\b(?:and|or|but|whereas|while|yet|however|although)\b|[;；]|(?<
 def split_clauses(text):
     return [part for part in re.split(CLAUSE_BREAKS,text,flags=re.I) if part.strip(" ,，。.")]
 
+SYMBOL = r"[A-Za-zα-ωΑ-Ω](?:[A-Za-z0-9₀-₉]*)(?:_(?:\{[A-Za-z0-9]+\}|[A-Za-z0-9]+))?"
+SIMPLE_RATIO = re.compile(r"(?<![A-Za-z0-9_/])("+SYMBOL+r")\s*=\s*\(?\s*("+SYMBOL+r")\s*\)?\s*/\s*\(?\s*("+SYMBOL+r")(?![A-Za-z0-9₀-₉_])")
+
+
+def reversed_definition(text, original):
+    def symbol(key):
+        return unicodedata.normalize("NFKC",key).replace("_","").replace("{","").replace("}","")
+    definitions = {(symbol(a),symbol(b),symbol(c)) for a,b,c in SIMPLE_RATIO.findall(original)}
+    return any(b!=c and (a,c,b) in definitions and (a,b,c) not in definitions
+               for a,b,c in (tuple(map(symbol,m)) for m in SIMPLE_RATIO.findall(text)))
+
+
 def linguistic_flags(old,new,gloss=None):
-    review=[]
+    review=["reversed numerator and denominator"] if reversed_definition(new,old) else []
     for key,pattern in FLAGS.items():
         if bool(re.search(pattern,old,re.I))!=bool(re.search(pattern,new,re.I)): review.append(key)
     def directions(text):
@@ -162,7 +178,10 @@ def audit(source,draft,mode):
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("mode",choices=["translate","edit"]);p.add_argument("source");p.add_argument("draft");p.add_argument("outdir",type=Path);p.add_argument("--strict",action="store_true")
-    a=p.parse_args(); report, manuscript=audit(read(a.source),read(a.draft),a.mode)
+    p.add_argument("--word",action="store_true",help="also export an editable parallel text or clean and tracked Word manuscripts")
+    p.add_argument("--original-docx",type=Path,help="revise anchored plain paragraphs in the original Word template")
+    p.add_argument("--preview",action="store_true",help="also render the Word deliverables as PDF using LibreOffice")
+    a=p.parse_args(); source,draft=read(a.source),read(a.draft);report, manuscript=audit(source,draft,a.mode)
     name="bilingual.md" if a.mode=="translate" else "revised.md"
     report["status"]="needs_review" if report["findings"] else "checked"
     write(a.outdir/"audit.json",report)
@@ -173,5 +192,26 @@ if __name__=="__main__":
             canonical.replace(a.outdir/("previous-"+hashlib.sha256(canonical.read_bytes()).hexdigest()[:12]+"-"+name))
         name="candidate-"+name
     atomic_text(a.outdir/name,manuscript)
+    if a.word or a.original_docx or a.preview:
+        import subprocess
+        from word_export import export_word,preview_pdf
+        try:
+            candidate = a.strict and report["findings"]
+            if candidate:
+                import hashlib
+                names = ["bilingual.docx"] if a.mode=="translate" else ["tracked.docx","revised.docx"]
+                for filename in names:
+                    canonical = a.outdir/filename
+                    if canonical.is_file() and (not a.original_docx or canonical.resolve()!=a.original_docx.resolve()):
+                        canonical.replace(a.outdir/("previous-"+hashlib.sha256(canonical.read_bytes()).hexdigest()[:12]+"-"+filename))
+            export_word(a.mode,source,draft,a.outdir,"candidate-" if candidate else "",a.original_docx)
+            if a.preview:
+                prefix="candidate-" if candidate else ""
+                names=["bilingual"] if a.mode=="translate" else ["revised","tracked"]
+                cjk=a.mode=="translate" or any(re.search(r"[\u3400-\u9fff]",r.get("target","")) for r in draft)
+                for name in names:
+                    preview_pdf(a.outdir/(prefix+name+".docx"),cjk)
+        except (ValueError, ImportError, OSError, subprocess.SubprocessError) as exc:
+            p.exit(1, str(exc)+"\n")
     print(f"{report['segments_received']} segments, {len(report['findings'])} findings")
     if a.strict and report["findings"]: raise SystemExit(1)

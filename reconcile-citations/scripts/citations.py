@@ -169,7 +169,79 @@ def bibliography_labels(entries, records):
     return result
 
 
+KEYED = re.compile(r"\[(?=[^\]\n]*@)(?:[^\]\n])+\]|\\(?:[cC]ite(?:p|t|author|year)?|parencite|textcite|autocite)\*?(?:\[[^\]\n]*\]){0,2}\{[^{}\n]+\}")
+PANDOC_KEY = re.compile(r"(?<![\w.])(-?@)([\w](?:[\w:./+%-]*[\w])?)")
+
+
+def keyed_groups(manuscript):
+    ignored = [m.span() for m in PROTECTED.finditer(manuscript)]
+    for match in KEYED.finditer(manuscript):
+        if any(a<=match.start()<b for a,b in ignored):
+            continue
+        group = match[0]
+        if group.startswith("["):
+            keys = [(m[2],match.start()+m.start(2),match.start()+m.end(2)) for m in PANDOC_KEY.finditer(group)]
+        else:
+            content = re.search(r"\{([^{}]+)\}$",group)
+            offset = match.start()+content.start(1)
+            keys = [(m[0],offset+m.start(),offset+m.end()) for m in re.finditer(r"[^,\s]+",content[1])]
+        if keys:
+            yield match,keys
+
+
+def reconcile_keys(manuscript, merged, mapping, decisions, issues, keyed):
+    changes,occ,order = [],[],{}
+    ends = sentence_breaks(manuscript)
+    for group,keys in keyed:
+        unknown=[k for k,_,_ in keys if k not in mapping]
+        if unknown:
+            issues.append({"offset":group.start(),"issue":"unknown citation key","keys":unknown,
+                           "sentence":citation_context(manuscript,group.start(),ends)})
+        corrected=group[0];matched=[]
+        for key,a,b in reversed(keys):
+            if key in mapping:
+                idx=mapping[key];canonical=str(merged[idx].get("id",idx+1))
+                if canonical!=key:
+                    changes.append((a,b,canonical))
+                    corrected=corrected[:a-group.start()]+canonical+corrected[b-group.start():]
+        for key,_,_ in keys:
+            if key in mapping:
+                idx=mapping[key];order.setdefault(idx,len(order)+1);matched.append(str(merged[idx].get("id",idx+1)))
+        occ.append({"source_offsets":[group.start(),group.end()],"old":group[0],"new":corrected,
+                    "sentence":citation_context(manuscript,group.start(),ends),"record_ids":matched,"unresolved":unknown})
+    result=manuscript
+    for a,b,target in sorted(changes,reverse=True):
+        result=result[:a]+target+result[b:]
+    return result,{"cited":[{"number":n,"record":merged[i]} for i,n in order.items()],
+                   "uncited":[r for i,r in enumerate(merged) if i not in order],"merge_decisions":decisions,
+                   "numbering_status":"citation_keys_preserved","label_source":"manuscript_keys",
+                   "occurrences":occ,"metadata_status":[metadata_status(r,issues) for r in merged],"issues":issues}
+
+
 def reconcile(records,manuscript,labels=None):
+    keys = list(keyed_groups(manuscript))
+    if not keys:
+        return numeric_references(records,manuscript,labels)
+    merged,mapping,decisions,issues=groups(records)
+    revised,report = reconcile_keys(manuscript,merged,mapping,decisions,issues,keys)
+    protected = [m.span() for m in PROTECTED.finditer(manuscript)] + [m.span() for m,_ in keys]
+    if any(not any(a<=m.start()<b for a,b in protected) for m in CITE.finditer(manuscript)):
+        _, numeric = numeric_references(records,manuscript,labels,protected)
+        additions = [{**o,"new":o["old"]} for o in numeric["occurrences"]]
+        report["occurrences"] = sorted(report["occurrences"]+additions,key=lambda o:o["source_offsets"][0])
+        for problem in numeric["issues"]:
+            if problem not in report["issues"]:
+                report["issues"].append(problem)
+        cited_ids = list(dict.fromkeys(rid for o in report["occurrences"] for rid in o["record_ids"]))
+        ids = {str(record.get("id",i)):record for i,record in enumerate(merged,1)}
+        report["cited"] = [{"number":i,"record":ids[rid]} for i,rid in enumerate(cited_ids,1)]
+        report["uncited"] = [r for rid,r in ids.items() if rid not in cited_ids]
+        report["label_source"] = "manuscript_keys_and_"+numeric["label_source"]
+        report["numbering_status"] = "mixed_original_numbers_preserved"
+    return revised,report
+
+
+def numeric_references(records,manuscript,labels=None,skip=None):
     merged,mapping,decisions,issues=groups(records)
     basis = "explicit" if labels is not None else "library_order_assumed"
     heading=REF_HEAD.search(manuscript)
@@ -192,7 +264,7 @@ def reconcile(records,manuscript,labels=None):
         basis = "printed_bibliography"
     elif labels is None:
         labels = {str(i):str(r.get("id",i)) for i,r in enumerate(records,1)}
-    ordering={};occ=[];protected=[m.span() for m in PROTECTED.finditer(manuscript)]
+    ordering={};occ=[];protected=skip if skip is not None else [m.span() for m in PROTECTED.finditer(manuscript)]
     numbering_problems=[{"issue":"duplicate original bibliography label","label":label} for label in sorted(repeated_labels)]
     original_numbers=collections.defaultdict(list)
     ends=sentence_breaks(manuscript)

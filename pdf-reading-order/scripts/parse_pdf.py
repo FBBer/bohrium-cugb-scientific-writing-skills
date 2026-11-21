@@ -274,6 +274,17 @@ def mupdf_pages(doc):
                         geometry.append(values)
                     content={"bbox":list(t.bbox),"rows":geometry,"row_cells":[[list(c) if c else None for c in row.cells] for row in t.rows],
                              "cells":[list(c) if c else None for c in t.cells],"alternate_extractions":changes}
+                    # A hairline rule can be detected as an empty column between its two stroke edges.
+                    raw_cells = content["row_cells"]
+                    keep = []
+                    for col in range(max(map(len,geometry),default=0)):
+                        boxes = [row[col] for row in raw_cells if col < len(row) and row[col]]
+                        empty = all(col>=len(row) or row[col] in (None,"") for row in geometry)
+                        is_rule = len(boxes)==len(raw_cells) and all(0<b[2]-b[0]<=2.25 for b in boxes)
+                        if not (empty and is_rule):
+                            keep.append(col)
+                    if keep and len(keep)<max(map(len,geometry),default=0):
+                        content["reading_columns"] = [col+1 for col in keep]
                     if formatted:
                         content["formatted_cells"]=formatted
                     header=getattr(t,"header",None)
@@ -337,6 +348,56 @@ def object_regions(page,box,kind):
     chosen=(candidates[0] if candidates and (len(candidates)==1 or candidates[1]["distance_pt"]-candidates[0]["distance_pt"]>=12) else None)
     return {"matched":chosen,"candidates":candidates,"basis":"caption geometry"}
 
+CONTINUATION = re.compile(r"\b(?:continued|cont\.|cont[’']d)\b|\bcont\.|续表|接上表|[（(]续[）)]",re.I)
+
+
+def continued_tables(pages, objects):
+    """Link explicitly continued tables on adjacent pages; every cell row retains its physical origin."""
+    by_page = {page["page"]:page for page in pages}
+    linked = []
+    for obj in objects:
+        if obj["kind"] != "table":
+            continue
+        series = None
+        for caption in sorted(obj["captions"], key=lambda c:(c["page"],c["bbox"][1])):
+            match = caption.get("regions",{}).get("matched")
+            if not match:
+                continue
+            page_number = caption["page"]
+            tables = [table for table in by_page[page_number]["tables"] if "bbox" in table]
+            table = tables[match["index"]-1]
+            grid = table.get("rows") or []
+            if not grid or not grid[0]:
+                continue
+            external = table.get("external_header") or {}
+            cols = [i-1 for i in table.get("reading_columns",range(1,len(grid[0])+1))]
+            grab = lambda row:[row[i] if i<len(row) else None for i in cols]
+            header = grab(external.get("names") or grid[0])
+            clean = lambda cells:tuple(" ".join(str(v or "").split()).casefold() for v in cells)
+            continuing = bool(CONTINUATION.search(caption["text"]))
+            carry = (series is not None and continuing and page_number == series["segments"][-1]["page"]+1)
+            if carry:
+                same_header = clean(header)==clean(series["header"])
+                # A changed header or a different column count can describe a different panel.
+                if not same_header or not any(clean(header)):
+                    series = None
+                    continue
+            elif continuing:
+                series = None
+                continue
+            else:
+                series = {"number":obj["number"],"header":header,"segments":[],"data":[]}
+            data_start = 0 if external else 1
+            series["segments"].append({"page":page_number,"table":match["index"],"caption":caption["line"],"bbox":match["bbox"]})
+            for row_number, values in enumerate(grid[data_start:],data_start+1):
+                cells = table.get("row_cells",[])
+                series["data"].append({"page":page_number,"table":match["index"],"row":row_number,"values":grab(values),
+                                       "physical_columns":[i+1 for i in cols],"cells":grab(cells[row_number-1]) if row_number<=len(cells) else []})
+            if len(series["segments"]) == 2:
+                linked.append(series)
+    return linked
+
+
 def structure(pages,bookmarks):
     outline=[];objects={}
     for page in pages:
@@ -358,7 +419,8 @@ def structure(pages,bookmarks):
                 item[field].append(found)
     for item in objects.values():
         item["first_mention"]=next(iter(item["mentions"]),None)
-    return {"headings":outline,"pdf_bookmarks":bookmarks,"objects":list(objects.values())}
+    return {"headings":outline,"pdf_bookmarks":bookmarks,"objects":list(objects.values()),
+            "continued_tables":continued_tables(pages,objects.values())}
 
 
 def run(path,dest,language):

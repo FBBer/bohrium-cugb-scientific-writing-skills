@@ -17,3 +17,5 @@ python3 "$S/scripts/build.py" /app/work/project main.tex /app/output/latex-build
 在干净目录用交付源码二次编译，逐页比较提取文本、页数、公式/表格/引文标记和渲染；PDF 时间戳不作为版面变化依据。把构建和源材料映射写入 result.json 的原契约字段。无法编译时仍交付可编辑源码、准确日志、恢复位置及部分状态。
 
 本地复核使用 TeX Live 2026 和 latexmk 4.88。独立环境安装与模板匹配的 TeX Live 组件及其 BibTeX/Biber、字体、宏包；用 pdflatex --version 和 latexmk -version 记录实际版本。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+
+主文件尚未确定时可传 auto。程序会核实项目内的 % !TeX root 目标和 documentclass，忽略注释示例。有多个可能源稿会列出候选名，此时按题面指定的目标用相对路径编译。
