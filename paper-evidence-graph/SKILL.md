@@ -5,54 +5,23 @@ description: 抽取可溯源的实体及有向关系，保留有证据的别名�
 
 # 文献知识图谱
 
-按论文建立文档身份和证据位置。实体至少区分方法、材料/数据、任务、指标、结论和作者；仅创建材料实际提及的对象。关系保持方向、条件、否定、出处及直接/推断/转述强度。
+先列出读者实际要问的问题，再从原文建立能回答问题的最小图。实体保留原称和别名，关系记录方向、极性、成立条件与出处。运行给定查询，交付真实路径，并指出哪些边能由原文支持。
 
-## 从本次案例开始
-
-读取 /input/case.json、同目录 task.md 和列出的原始附件。若存在 environment/resources.yaml，按其记录使用当前镜像的工具。在工作目录记下输出字段、类型、语言、文件名和原材料位置。用实际材料内容判断领域。此包不依赖其他参赛目录、网络、密钥或个人绝对路径。
+读取本次材料、任务说明和指定交付格式。短文或已有稿件可以直接编辑。长文、多附件或数字密集时，从文件名、页、段、表格单元格建立证据索引。Word 表格保留表号、行号和列号；带单位的值要同时核对同表列头。需要可交换图文件时，用图谱脚本导出 GraphML，并核对查询与反向查询。具体调用见[处理方法](references/method.md)。
 
 ```sh
 S=/skills/weekly-skill
-mkdir -p /app/work /app/output
 python3 "$S/scripts/casework.py" index --input /input --work /app/work
 ```
 
-sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。Excel 实验表按工作表名和单元格定位。数字保留存储值，百分号等格式另列；公式、已有缓存值分别记录，未缓存的公式需要用原工作簿重算。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
+长论文可用 `casework.py find 检索词 --source 实际文件名` 查找带位置的原文。多个检索词要在同一条材料里同时出现；结果列出原句和总命中数。
 
-## 执行方法
+把题目要求的成稿写到 `/app/output`，用原始 `case_id` 和 `output_contract` 规定的字段与类型生成 `result.json`。依据、局限和需作者确认的事项放在题目对应字段。要求可编辑文件或渲染预览时，交付实际生成的文件。
 
-计划含 nodes、edges 和 queries 三个数组。节点形如 {"key":"a","type":"method","label":"原名","scope":"学科/义项","document":"实际文件","aliases":[],"evidence":[{"id":"S","quote":"原文"}]}。关系含 source、target（局部 key）、predicate、scope、polarity（positive/negative/uncertain）、strength（direct/inference/quoted）、evidence。保留人名重名、全称/缩写的文内定义、不同任务下的同名模型。仅在有合并依据且类型兼容时给后出现的节点 same_as 和 merge_reason。以有证据的别名表保留原文拼写。
-
-将共现、作者提出、经过验证、引用他人发现及推断区分开。直接关系的肯定或否定须与原句中同一对实体、同一谓词一致。若两篇论文在不同条件下得到相反结果，为每种条件分别保留关系和出处。“可能用于”一类引文按 uncertain 记录并保留原词。原文写“未观察到显著变化”时，在 scope 里写清统计条件或测量分辨率。直接关系的措辞如果包含转述、双重否定或省略的主语，先按原文辨认其含义，再决定它表示已观察到的事实、推断还是可能性。对相对关系写清 A 相对谁、指标越大还是越好。新增文献可用 --previous 读取既有 graph.json，以持久节点 ID 指明同一实体；核查已有边和证据未丢失。
-
-从材料写至少三个真正不同的研究问题，覆盖方法和任务、指标或比较、以及未证实的关系。每项如 {"question":"哪个方法在此设置下与基线比较？","where":{"predicate":"compared_with","scope":"实际设定"},"source_type":"method"}。支持 source、target、predicate、scope、strength、polarity 过滤和 source_type/target_type。脚本返回实际命中子图与证据。多跳问题可按中间节点连接两次查询并列出各跳证据。
+已有符合要求的 `result.json` 可直接运行 `casework.py check`。需要把成品填入结果时，先把自行撰写的字段放入 `/app/work/fields.json`。下面示例把相对文件路径写入 `/file`；运行时换成本题的字段名和实际文件名。题目要求正文或数组时，分别用 `--text 字段 文件` 或 `--json 字段 文件 'JSON指针'`，整份 JSON 的指针为 `''`。所引用的文件均相对输出目录。
 
 ```sh
-python3 "$S/scripts/graph.py" /app/work/sources.json /app/work/graph-plan.json /app/output
+python3 "$S/scripts/casework.py" deliver --fields /app/work/fields.json --file /file graph.graphml
 ```
 
-每个有依据的查询同时生成可编辑 SVG。实体旁的实色色标区分类型。标题、节点文字、关系和条件说明，以及连线和箭头均用纯黑色（#000000）。箭头从主体指向客体，关系名称在箭头上，适用条件在下。实线表示直接证据，虚线表示推断或转引，箭头下另标明具体类别。节点标签沿用原材料的写法。可用 PyMuPDF 时一并导出印刷版 PDF 和 PNG 预览。增量合并时，出处还保留案例标识与文本版本指纹；同一路径同一行的修订分开定位。原始关系保存在 graph.json，绘图代码位于 scripts/diagram.py。中文稿在图中沿用中文实体和关系标签，分组标题直接写该组回答的问题。
-
-## 交付与复核
-
-打开 graph.graphml、graph.json、queries.json，检查每条边有两端，每个回答的证据能回指正文。数字相同或名称相似不构成合并依据。空查询标记材料缺乏支持，追加实际问题的人类可读答案以及出现冲突时的并列解释。
-
-把可编辑成果写入 /app/output。正文使用适合目标读者的科研表达，直接给出译文、论证、参数或结论。每个结果沿用原 case_id 和 output_contract 的字段、类型与层级。输出文件名遵循 task.md。来源差异、缺项的具体原因和运行状态写入契约指定字段或单独的审计文件。Office 文档和图形按要求附可编辑源与实物渲染。
-
-```sh
-python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
-```
-
-## 阅读版式
-
-实体名称直接放在黑色箭头两端。小块实色区分实体类别，关系和条件靠近连线。带多项查询时每幅图独立回答一个问题，读者可展开原句。白底黑字，以留白区分内容。来源、单位和影响理解的限定信息使用可读字号。过程记录另存。
-
-需要阅读页时，运行 `python3 "$S/scripts/view.py" 主成果路径 阅读页.html`，将“主成果路径”替换为实际生成的 `graph.json` 路径。离线页面可在浏览器打开。正式交付仍使用题目指定的文件、字段和模板。
-
-## 独立运行环境
-
-常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
-
-## 可复用的最小示例
-
-从本目录运行 `python3 examples/demo.py /tmp/paper-evidence-graph-example`。示例使用自写的小样本，实际运行结果保存在指定目录，输入和预期现象见 [示例说明](examples/README.md)。发行版本 1.0，运行环境为 Python 3.9 或以上。可在作品仓库相应目录的 Issues 中附匿名化最小复现、实际输出和依赖版本反馈问题。
+[本地示例与输入输出](examples/README.md)

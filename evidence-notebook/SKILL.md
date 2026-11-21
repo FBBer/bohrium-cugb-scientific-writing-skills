@@ -5,54 +5,23 @@ description: 沿论文真实结构建立含研究条件、发现和局限的笔�
 
 # 结构化阅读笔记
 
-沿论文原有章节和讨论顺序建立骨架。辨别经验论文、理论推导、方法稿或综述；根据体裁取证。先列每节在论证中的作用，再从问题到结论记录原文所述步骤。
+沿论文实际章节记录问题、方法条件、观察和局限。将原文事实、作者解释和读者推断分开，每条主要发现写清条件、数值和原文位置。比较不同论文时保留指标、单位和研究对象，标明何处可比。
 
-## 从本次案例开始
-
-读取 /input/case.json、同目录 task.md 和列出的原始附件。若存在 environment/resources.yaml，按其记录使用当前镜像的工具。在工作目录记下输出字段、类型、语言、文件名和原材料位置。用实际材料内容判断领域。此包不依赖其他参赛目录、网络、密钥或个人绝对路径。
+读取本次材料、任务说明和指定交付格式。短文或已有稿件可以直接编辑。长文、多附件或数字密集时，从文件名、页、段、表格单元格建立证据索引。Word 表格保留表号、行号和列号；带单位的值要同时核对同表列头。需要可检索卡片时，用笔记脚本生成章节、主题索引和证据表。具体调用见[处理方法](references/method.md)。
 
 ```sh
 S=/skills/weekly-skill
-mkdir -p /app/work /app/output
 python3 "$S/scripts/casework.py" index --input /input --work /app/work
 ```
 
-sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。Excel 实验表按工作表名和单元格定位。数字保留存储值，百分号等格式另列；公式、已有缓存值分别记录，未缓存的公式需要用原工作簿重算。写作时同时引用数值单元格及同一连续数据列的单位表头，可保留原量纲。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
+长论文可用 `casework.py find 检索词 --source 实际文件名` 查找带位置的原文。多个检索词要在同一条材料里同时出现；结果列出原句和总命中数。
 
-## 执行方法
+把题目要求的成稿写到 `/app/output`，用原始 `case_id` 和 `output_contract` 规定的字段与类型生成 `result.json`。依据、局限和需作者确认的事项放在题目对应字段。要求可编辑文件或渲染预览时，交付实际生成的文件。
 
-工作计划是 {"language":"zh","sections":[{"title":"真实章节名","paragraphs":[[{"id":"N1","role":"finding","text":"该条发现和边界","condition":"成立条件","keywords":["检索词"],"evidence":[{"id":"索引锚点","quote":"逐字证据"}]}]]}]}。合法角色 question、data、method、finding、limitation、definition、context、interpretation。paragraphs 的外层为段落、内层为句子或笔记项。摘要应重述论文实际问题、材料范围、关键条件、主要结果和作者承认的局限。用章节间的依赖解释为何下一部分出现。
-
-把数值与单位、比较对象、评价指标和实验设定绑定；分开写参数与结论、观察与作者解释。对同一结果的正文和图表数值分别取证，有差异就写清各自位置和可疑原因。用一致的索引词串起缩写与同义词；跨论文比较时区分真实可比字段与不可比条件。给每条缺失信息设置 status=unreported 或 uncertain 并说明 reason；推断标 inference、给出依据。
+已有符合要求的 `result.json` 可直接运行 `casework.py check`。需要把成品填入结果时，先把自行撰写的字段放入 `/app/work/fields.json`。下面示例把相对文件路径写入 `/editable`；运行时换成本题的字段名和实际文件名。题目要求正文或数组时，分别用 `--text 字段 文件` 或 `--json 字段 文件 'JSON指针'`，整份 JSON 的指针为 `''`。所引用的文件均相对输出目录。
 
 ```sh
-python3 "$S/scripts/compose.py" notes /app/work/sources.json /app/work/notes-plan.json /app/output --strict
+python3 "$S/scripts/casework.py" deliver --fields /app/work/fields.json --file /editable notes.md
 ```
 
-在跨文献比较或参数归属句中，为每一对研究主体和条件分别给出 bindings。每项用 id、quote、subject_in_source、condition_in_source 记录同一来源子句里的两个原文片段；把该引文也列入本句 evidence。脚本逐对检查锚点及两个片段能否同时回指该子句。正文翻译过的名称、指代和因果关系仍需逐句对应。
-
-派生数值使用 derivation 记录计算。operation 可取 sum、difference、mean、ratio、percent_of 或 percent_change。inputs 依次列两个带原文锚点 id、数值 value 和单位 unit 的数，变化百分比按（新值−基线）/基线计算。复杂推导随稿给出公式和原始数据，另行复算。
-
-## 交付与复核
-
-检查来源映射中的每一条引文，重点检查主要发现、方法边界以及结论可能失效的条件。paper-cards.json 按论文列出原文事实、解释与局限。作者的解释用 interpretation 角色；读者推断用 inference 状态，并列理由及所据原句。要比较两篇论文，在计划的 comparisons 中填写 left 和 right（两个笔记 ID）、axis、comparability（comparable、conditional 或 not_comparable）和 reason，写清对象、条件、指标或分辨率的差别。交付可读笔记、论文卡片、主题索引和主张溯源表，并在 case 的字段中给出真实卡片和未决项。
-
-把可编辑成果写入 /app/output。正文使用适合目标读者的科研表达，直接给出译文、论证、参数或结论。每个结果沿用原 case_id 和 output_contract 的字段、类型与层级。输出文件名遵循 task.md。来源差异、缺项的具体原因和运行状态写入契约指定字段或单独的审计文件。Office 文档和图形按要求附可编辑源与实物渲染。
-
-```sh
-python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
-```
-
-## 阅读版式
-
-用研究问题、观察和限制组织笔记，以自然段和空白分节。作者解释、读者判断及影响结论的实验条件直接写在相关句旁。白底黑字，以留白区分内容。来源、单位和影响理解的限定信息使用可读字号。过程记录另存。
-
-需要阅读页时，运行 `python3 "$S/scripts/view.py" 主成果路径 阅读页.html`，将“主成果路径”替换为实际生成的 `notes.md` 路径。离线页面可在浏览器打开。正式交付仍使用题目指定的文件、字段和模板。
-
-## 独立运行环境
-
-常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
-
-## 可复用的最小示例
-
-从本目录运行 `python3 examples/demo.py /tmp/evidence-notebook-example`。示例使用自写的小样本，实际运行结果保存在指定目录，输入和预期现象见 [示例说明](examples/README.md)。发行版本 1.0，运行环境为 Python 3.9 或以上。可在作品仓库相应目录的 Issues 中附匿名化最小复现、实际输出和依赖版本反馈问题。
+[本地示例与输入输出](examples/README.md)

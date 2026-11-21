@@ -142,12 +142,59 @@ def metadata_status(record,issues):
     return {"record_id":rid,"field_coverage":"partial" if missing else "core_fields_present","missing_core_fields":missing,
             "doi":doi(record.get("DOI")) or None,"metadata_issues":conflicts,"external_verification":"not_performed"}
 
+def bibliography_labels(entries, records):
+    """Recover printed labels by bibliographic identity, independently of library order."""
+    by_doi = collections.defaultdict(set)
+    titles = []
+    for i, record in enumerate(records, 1):
+        ident = str(record.get("id", i))
+        identifier = doi(record.get("DOI") or record.get("doi"))
+        if identifier:
+            by_doi[identifier].add(ident)
+        title = norm(record.get("title"))
+        if title:
+            titles.append((title, ident))
+    result = {}
+    for label, entry in entries.items():
+        identifiers = {doi(m.rstrip(".,;")) for m in re.findall(r"10\.\d{4,9}/[^\s<>\"]+", entry, re.I)}
+        title_line = " " + norm(entry) + " "
+        title_hits = {ident for title, ident in titles if " " + title + " " in title_line}
+        if identifiers:
+            doi_hits = set().union(*(by_doi.get(x, set()) for x in identifiers))
+            hits = doi_hits & title_hits if title_hits else doi_hits
+        else:
+            hits = title_hits
+        if len(hits) == 1:
+            result[label] = hits.pop()
+    return result
+
+
 def reconcile(records,manuscript,labels=None):
     merged,mapping,decisions,issues=groups(records)
-    if labels is None:
-        labels={str(i):str(r.get("id",i)) for i,r in enumerate(records,1)}
+    basis = "explicit" if labels is not None else "library_order_assumed"
+    heading=REF_HEAD.search(manuscript)
+    entries={}
+    repeated_labels=set()
+    if heading:
+        tail=manuscript[heading.end():];following=NEXT_SECTION.search(tail)
+        end=heading.end()+(following.start() if following else len(tail))
+        for entry in REF_ENTRY.finditer(manuscript[heading.end():end]):
+            label=entry[1] or entry[2]
+            if label in entries:
+                repeated_labels.add(label)
+            entries[label]=entry[3].strip()
+    if labels is None and entries:
+        canonical = {}
+        for record_id, index in mapping.items():
+            canonical.setdefault(index, record_id)
+        identities = [dict(record, id=canonical[index]) for index, record in enumerate(merged)]
+        labels = bibliography_labels(entries, identities)
+        basis = "printed_bibliography"
+    elif labels is None:
+        labels = {str(i):str(r.get("id",i)) for i,r in enumerate(records,1)}
     ordering={};occ=[];protected=[m.span() for m in PROTECTED.finditer(manuscript)]
-    numbering_problems=[];original_numbers=collections.defaultdict(list)
+    numbering_problems=[{"issue":"duplicate original bibliography label","label":label} for label in sorted(repeated_labels)]
+    original_numbers=collections.defaultdict(list)
     ends=sentence_breaks(manuscript)
     def replace(m):
         if any(a<=m.start()<b for a,b in protected):return m[0]
@@ -170,17 +217,7 @@ def reconcile(records,manuscript,labels=None):
         occ.append({"source_offsets":[m.start(),m.end()],"old":m[0],"new":new,
                     "sentence":citation_context(manuscript,m.start(),ends),
                     "record_ids":[str(merged[i].get("id",i+1)) for i in idxs]});return new
-    heading=REF_HEAD.search(manuscript)
     if heading:
-        tail=manuscript[heading.end():];following=NEXT_SECTION.search(tail)
-        end=heading.end()+(following.start() if following else len(tail))
-        ref_block=manuscript[heading.end():end]
-        entries={}
-        for entry in REF_ENTRY.finditer(ref_block):
-            label=entry[1] or entry[2]
-            if label in entries:
-                numbering_problems.append({"issue":"duplicate original bibliography label","label":label})
-            entries[label]=entry[3].strip()
         body=CITE.sub(replace,manuscript[:heading.start()])
         suffix_parts=[];last=end
         for match in CITE.finditer(manuscript,end):
@@ -211,7 +248,7 @@ def reconcile(records,manuscript,labels=None):
     issues.extend(numbering_problems)
     numbering_status="original_preserved" if preserve or not ordering else "partial" if numbering_problems else "resolved"
     return revised,{"cited":used,"uncited":[r for i,r in enumerate(merged) if i not in original_numbers],"merge_decisions":decisions,
-                    "numbering_status":numbering_status,
+                    "numbering_status":numbering_status,"label_source":basis,
                     "occurrences":occ,"metadata_status":[metadata_status(r,issues) for r in merged],"issues":issues}
 
 

@@ -13,7 +13,7 @@ ROLES={
     "notes":{"question","data","method","finding","limitation","definition","context","interpretation"},
     "introduction":{"background","comparison","gap","objective","contribution","scope"},
     "methods":{"procedure","data","split","parameter","evaluation","baseline","environment","repetition","limitation"}}
-NUMBER=re.compile(r"(?<![A-Za-z0-9_.])([+−-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+−-]?\d+)?)(?:[ \t]*(%|‰|°C|°F|dBm|dB|[kMGTmunμµ]?(?:Hz|Pa|V|W|A|K|J|g|m|s|L|F|N|T|mol)(?:/[kmunμµ]?(?:s|m|L|g)(?:[²³23])?)?)(?![A-Za-z]))?")
+NUMBER=re.compile(r"(?<![A-Za-z0-9_.])([+−-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+−-]?\d+)?)(?:[ \t]*(%|‰|°C|°F|dBm|dB|[kMGTcmunμµ]?(?:Hz|Pa|V|W|A|K|J|g|m|s|L|F|N|T|mol)(?:/[kcmunμµ]?(?:s|m|L|g)(?:[²³23])?)?)(?![A-Za-z]))?")
 def quantities(text):
     return [(Decimal(m[1].replace("−","-")),(m[2] or "").replace("µ","μ"),m[0].strip()) for m in NUMBER.finditer(text)]
 
@@ -26,6 +26,11 @@ def spreadsheet_units(sources):
     """Associate numeric cells with a unit header within the same continuous column."""
     columns=defaultdict(list); formats={}
     for item in sources:
+        if item["source"].lower().endswith(".docx"):
+            cell = re.fullmatch(r"word/document\.xml:tbl(\d+):R(\d+):C(\d+)", item["location"])
+            if cell:
+                columns[item["source"],cell[1],cell[3]].append((int(cell[2]),item))
+            continue
         if not item["source"].lower().endswith(".xlsx"):
             continue
         if item["location"].endswith(":format"):
@@ -106,13 +111,18 @@ def condition_substitution(body,condition,evidence):
                         "stated_condition":condition,"matching_source":quote}
     return None
 
+SI_UNIT = re.compile(r"([TGMkcmuμn]?)(Hz|Pa|V|W|A|K|J|g|m|s|L|F|N|T|mol)")
+SI_EXPONENT = {"T":12,"G":9,"M":6,"k":3,"":0,"c":-2,"m":-3,"u":-6,"μ":-6,"n":-9}
+
+
 def derived_measurement(written,evidence,calculation):
-    """Verify a two-input derived measurement using quantities in the cited source fragments."""
+    """Verify an explicit unit conversion or two-input calculation against cited quantities."""
     if not isinstance(calculation,dict) or not isinstance(calculation.get("inputs"),list):
         return False
     inputs=calculation["inputs"]
     target=quantities(written)
-    if len(inputs)!=2 or len(target)!=1:
+    operation=calculation.get("operation")
+    if len(inputs)!=(1 if operation=="convert_unit" else 2) or len(target)!=1:
         return False
     measured=[]
     for term in inputs:
@@ -126,9 +136,22 @@ def derived_measurement(written,evidence,calculation):
         available={pair[:2] for e in evidence if e.get("id")==term["id"] for pair in quantities(e.get("quote",""))}
         if (value,unit) not in available:return False
         measured.append((value,unit))
+    if operation=="convert_unit":
+        before, source_unit=measured[0]
+        after, target_unit, _=target[0]
+        source=SI_UNIT.fullmatch(source_unit)
+        dest=SI_UNIT.fullmatch(target_unit)
+        if not source or not dest or source[2]!=dest[2]:
+            return False
+        try:
+            # The change of SI prefix is exact; equality needs no tolerance or guessed factor.
+            with localcontext() as context:
+                context.prec=max(34,len(before.as_tuple().digits)+1)
+                return before.scaleb(SI_EXPONENT[source[1]]-SI_EXPONENT[dest[1]])==after
+        except DecimalException:
+            return False
     (left,u),(right,v)=measured
     if u!=v:return False
-    operation=calculation.get("operation")
     try:
         if operation=="sum":number=left+right
         elif operation=="difference":number=left-right

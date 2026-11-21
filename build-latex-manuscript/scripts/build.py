@@ -95,12 +95,14 @@ def manual_compile(tool, main, cwd, records, env):
     return rc, output, False
 
 
-def compile_once(tool, main, source, pdf):
+def compile_once(tool, main, source, pdf, directory=Path(".")):
     records = []
     env = dict(os.environ, openout_any="p", openin_any="p", shell_escape="f")
     with tempfile.TemporaryDirectory() as temporary:
-        cwd = Path(temporary) / "project"
-        shutil.copytree(source, cwd)
+        root = Path(temporary) / "project"
+        shutil.copytree(source, root)
+        cwd = root / directory
+        main = main.relative_to(directory)
         if not shutil.which(tool):
             rc, output, stable = 127, tool + " not installed", False
         elif shutil.which("latexmk"):
@@ -117,6 +119,8 @@ def compile_once(tool, main, source, pdf):
             with built.open("rb") as stream:
                 if stream.read(5) == b"%PDF-":
                     shutil.copy2(built, pdf)
+        for record in records:
+            record["cwd"] = directory.as_posix()
     return rc, stable, records, log
 
 
@@ -155,17 +159,27 @@ def build(project, main, out, engine=None):
     main_source = source / rel
     pinned = bool(engine or MAGIC.search(main_source.read_text(encoding="utf-8", errors="replace")))
     tool = engine or engine_for(main_source)
-    rc, stable, records, log = compile_once(tool, rel, source, pdf)
-    attempts = [{"engine": tool, "exit": rc}]
-    final_records = records
-    if rc and not pinned:
-        alternative, reason = required_engine(log, tool)
-        if alternative:
-            attempts[0]["diagnostic"] = reason
+    attempts, records, tried = [], [], set()
+    directory = Path(".")
+    while (tool, directory) not in tried:
+        tried.add((tool, directory))
+        rc, stable, final_records, log = compile_once(tool, rel, source, pdf, directory)
+        records.extend(final_records)
+        attempt = {"engine":tool, "cwd":directory.as_posix(), "exit":rc}
+        attempts.append(attempt)
+        if not rc:
+            break
+        alternative, reason = required_engine(log, tool) if not pinned else (None, None)
+        if alternative and (alternative, directory) not in tried:
+            attempt["diagnostic"] = reason
             tool = alternative
-            rc, stable, final_records, log = compile_once(tool, rel, source, pdf)
-            records.extend(final_records)
-            attempts.append({"engine": tool, "exit": rc})
+            continue
+        missing = re.search(r"(?:File [^\n]+? not found|I can't find file [^\n]+)", log, re.I)
+        if missing and directory == Path(".") and rel.parent != directory:
+            attempt["diagnostic"] = missing.group(0)
+            directory = rel.parent
+            continue
+        break
     atomic_text(out / "compile.log", log)
     issues = [s.strip() for s in log.splitlines() if DIAGNOSTIC.search(s)]
     for record in final_records:
