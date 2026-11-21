@@ -18,6 +18,8 @@ python3 "$S/scripts/prose.py" edit /app/work/segments.json /app/work/edits.json 
 
 常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
-需要 Word 时追加 --word（依赖 python-docx）。revised.docx 是清稿，tracked.docx 使用 Word 原生插入与删除，分别接受或拒绝可恢复改文或原文。--original-docx 把可定位的普通段落改在原件副本中，保留其他段落、正文样式、表格、脚注和附件。待改段内含公式、字段或超链接时应在原件中编辑该处；原文件不会被覆盖。用 LibreOffice 导出并检查要求的 PDF 预览。
+需要 Word 时追加 --word（依赖 python-docx）。revised.docx 是清稿，tracked.docx 使用 Word 原生插入与删除，分别接受或拒绝可恢复改文或原文。--original-docx 把可定位的普通段落改在原件副本中，保留其他段落、正文样式、表格、脚注和附件。改动直接涉及公式、字段或超链接本身时，在原稿副本中编辑该对象。用 LibreOffice 导出并检查要求的 PDF 预览。
 
 需要同时查看 PDF 时追加 `--preview`，程序用 LibreOffice 渲染实际 Word 文件。中文页面在可用时加载当前机器的中文字体。
+
+从原稿取段运行 python3 scripts/segments.py /app/work/sources.json paper.docx /app/work/segments.json。每段只列一次，保留标题、表格内容和原件位置。把逐段改文交给 prose.py edit，并带 --original-docx。对复杂字段、链接、行内分式的修改在 Word 中处理，其前后的措辞可分别改写。

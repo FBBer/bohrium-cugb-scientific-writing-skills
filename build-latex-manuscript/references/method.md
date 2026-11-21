@@ -19,3 +19,5 @@ python3 "$S/scripts/build.py" /app/work/project main.tex /app/output/latex-build
 本地复核使用 TeX Live 2026 和 latexmk 4.88。独立环境安装与模板匹配的 TeX Live 组件及其 BibTeX/Biber、字体、宏包；用 pdflatex --version 和 latexmk -version 记录实际版本。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 主文件尚未确定时可传 auto。程序会核实项目内的 % !TeX root 目标和 documentclass，忽略注释示例。有多个可能源稿会列出候选名，此时按题面指定的目标用相对路径编译。
+
+project_inputs.files 取自 TeX 实际写出的 .fls 和文献后端日志，路径相对 source/。source_diagnostics 将带行号的错误对应到原件，可直接找到被主稿载入的章节。保留原始 compile.log 以查找跨文件警告。

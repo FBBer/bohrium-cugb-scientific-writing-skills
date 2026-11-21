@@ -21,3 +21,9 @@ python3 "$S/scripts/compose.py" notes /app/work/sources.json /app/work/notes-pla
 常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 Word 原生分式按分子和分母线性表达，上下标保留。附注使用自身编号或正文引用段的位置。表内计算时同时引用数值格和其对应列头；跨语言重排同组条件时，bindings 可给 subject_in_text，标明改写后对应的样品。paper-cards.json 的 boundaries 收录有来源的冲突或不确定项。
+
+例如 python3 scripts/casework.py rows --index /app/work/sources.json --source runs.tsv --where sample Chalk --where condition wet --select 'Pressure (kPa)'。用 matched_fields 中的样本和条件、values 中的读数以及 header 列头作出处。把各 id 和 quote 放入该句的 evidence。
+
+需要登记同一行的读数时，可在该句添加 observations。例如 {"source":"runs.tsv","where":{"sample":"Chalk","condition":"wet"},"field":"Pressure (kPa)","value_id":"实际读数的 id"} 是数组中的一项。按数据表的真实字段填写，并在 evidence 中一并列出筛选字段和读数。若同一条件有多次测量，另加观测编号区分。
+
+引用分隔表中的数值格时，正文明确点名的组别须与同一行的样品或条件一致。参数条目中的 scope 采用相同的对应方式。多组比较需分别引用实际测量的各行。

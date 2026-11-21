@@ -29,6 +29,11 @@ def spreadsheet_units(sources):
     """Associate numeric cells with a unit header within the same continuous column."""
     columns=defaultdict(list); formats={}
     for item in sources:
+        if item["source"].lower().endswith((".csv",".tsv")):
+            cell = re.fullmatch(r"R([1-9]\d*):C([1-9]\d*)",item["location"])
+            if cell:
+                columns[item["source"],"delimited",cell[2]].append((int(cell[1]),item))
+            continue
         if item["source"].lower().endswith(".docx"):
             cell = re.fullmatch(r"word/document\.xml:tbl(\d+):R(\d+):C(\d+)", item["location"])
             if cell:
@@ -207,7 +212,7 @@ def parameter_unit_issue(row, unit, evidence):
         return None
     return {"parameter":row.get("name"),"issue":"dimensionless unit needs an explicit source or dimensional derivation","unit":unit}
 
-SOURCE_CLAUSES = re.compile(r"[;；。！？!?]|(?<!\d)\.(?=\s+[A-Z]|$)|(?<=\d)\.(?=\s+[A-Z]|$)|\b(?:whereas|while|but)\b|但是|然而|而(?=另一|第|样|試|试|组|对照)", re.I)
+SOURCE_CLAUSES = re.compile(r"[;；。！？!?\r\n]|(?<!\d)\.(?=\s+[A-Z]|$)|(?<=\d)\.(?=\s+[A-Z]|$)|\b(?:whereas|while|but)\b|但是|然而|而(?=另一|第|样|試|试|组|对照)", re.I)
 
 
 def bound_clause(quote, subject, condition):
@@ -277,6 +282,126 @@ def binding_errors(bindings, evidence, source_rows):
     return problems
 
 
+def table_context(index):
+    """Relate numeric table cells to the category values occurring in their actual rows."""
+    fields = {r["id"]:r["text"] for r in index["sources"]}
+    by_value,domains = defaultdict(list),defaultdict(set)
+    for row in index.get("records",[]):
+        if not row["source"].lower().endswith((".csv",".tsv")):
+            continue
+        categories,readings = {},[]
+        for f in row["fields"]:
+            value = fields[f["id"]].strip()
+            if re.fullmatch(r"[+−-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+−-]?\d+)?",value):
+                readings.append((f,Decimal(value.replace("−","-"))))
+            elif len(value)<=60 and re.search(r"[^\W\d_]",value) and "\n" not in value:
+                column = (row["source"],f["column"])
+                domains[column].add(value)
+                categories[column] = value
+        for f,number in readings:
+            measure = (row["source"],f["column"],number)
+            by_value[f["id"]].append((measure,categories))
+    return by_value,domains
+
+
+def named_group(label,text):
+    left = r"(?<![A-Za-z0-9])" if re.match(r"[A-Za-z0-9]",label) else ""
+    right = r"(?![A-Za-z0-9])" if re.search(r"[A-Za-z0-9]$",label) else ""
+    if len(label)==1 and label.isascii() and label.isalpha():
+        # A single letter in running prose may be an article, a variable or a unit.
+        if text.strip()==label:
+            return True
+        return bool(re.search(r"(?:\b(?:group|sample|run|series|site)\s+|组|样品|条件)"+re.escape(label)+right,text))
+    return bool(re.search(left+re.escape(label)+right,text,re.I))
+
+
+def wrong_table_group(evidence, body, context, source_rows, scope=None):
+    by_value,domains = context
+    linked = defaultdict(lambda:defaultdict(lambda:defaultdict(set)))
+    for e in evidence:
+        if e.get("quote")!=source_rows.get(e.get("id"),{}).get("text"):
+            continue
+        for (file,reading_column,number),labels in by_value.get(e.get("id"),[]):
+            for col,label in labels.items():
+                if len(domains[col])>=2:
+                    linked[file,reading_column][col][number].add(label)
+
+    def named(column, words):
+        hits = [label for label in domains[column] if named_group(label,words)]
+        specific = [v for v in hits if not any(v.casefold() in other.casefold() for other in hits if v!=other)]
+        return sorted(specific,key=lambda label:words.casefold().find(label.casefold()))
+
+    def mismatch(written, allowed, number, column):
+        locations = []
+        for ref in evidence:
+            item=source_rows.get(ref.get("id"),{})
+            if ref.get("quote")==item.get("text") and any(
+                    measure[2]==number and labels.get(column) in allowed for measure,labels in by_value.get(ref.get("id"),[])):
+                point={"source":item["source"],"location":item["location"],"quote":ref["quote"]}
+                if point not in locations:
+                    locations.append(point)
+        return {"issue":"the written group and the cited measurement belong to different table rows","source_locations":locations,
+                "written_groups":sorted(written-allowed),"source_groups":sorted(allowed),"measurement":str(number)}
+
+    for sentence in re.split(r"[;；。!?！？]|(?<!\d)\.(?=\s|$)",body):
+        all_numbers=[v for v,_,_ in quantities(sentence)]
+        for columns in linked.values():
+            for col,allowed in columns.items():
+                if scope is not None:
+                    for number in all_numbers:
+                        given=set(named(col,str(scope)))
+                        if number in allowed and given-allowed[number]:
+                            return mismatch(given,allowed[number],number,col)
+                    continue
+                if re.search(r"\brespectively\b|in that order|分别|依次",sentence,re.I):
+                    names = named(col,sentence)
+                    readings = [v for v in all_numbers if v in allowed]
+                    if len(names)==len(readings) and len(names)>=2:
+                        for label,number in zip(names,readings):
+                            if label not in allowed[number]:
+                                return mismatch({label},allowed[number],number,col)
+                        continue
+                inherited = set()
+                for clause in re.split(r"[，,]|\b(?:whereas|while|but)\b",sentence,flags=re.I):
+                    given = set(named(col,clause))
+                    numbers = [v for v,_,_ in quantities(clause) if v in allowed]
+                    if not numbers:
+                        if given:
+                            inherited = given
+                        continue
+                    subjects = given or inherited
+                    for number in numbers:
+                        if subjects-allowed[number]:
+                            return mismatch(subjects,allowed[number],number,col)
+                    if given:
+                        inherited = given
+    return None
+
+
+def observation_errors(index, observations, evidence):
+    from source_records import lookup
+    verified = {(r["id"],r["quote"]) for r in evidence}
+    problems = []
+    for o in observations:
+        criteria = o.get("where")
+        if not isinstance(criteria,dict) or not criteria or not all(isinstance(v,str) for v in criteria.values()):
+            problems.append("supply the exact group and conditions for the selected observation")
+            continue
+        try:
+            found = lookup(index,o.get("source"),criteria.items(),[o.get("field")],2)
+        except ValueError as error:
+            problems.append(str(error))
+            continue
+        if found["total"] != 1 or len(found["matches"][0]["values"])!=1:
+            problems.append("source and group must identify one observation and one value column")
+            continue
+        row = found["matches"][0]
+        cell = row["values"][0]
+        if cell["id"] != o.get("value_id") or any((r["id"],r["quote"]) not in verified for r in row["matched_fields"]+[cell]):
+            problems.append("the cited value and group must belong to the same observed row")
+    return problems
+
+
 def tabular(header, rows):
     stream=io.StringIO()
     w=csv.writer(stream,delimiter="\t",lineterminator="\n")
@@ -316,6 +441,7 @@ def write_paper_cards(output, notes, comparisons, errors, boundaries):
 def render(mode, index, plan, output):
     sources={r["id"]:r for r in index["sources"]}
     sheet_units=spreadsheet_units(index["sources"])
+    table_groups=table_context(index)
     report={"mode":mode,"issues":[],"sections":[],"claims":0,"evidence_checks":0,"unresolved":[]}
     lookup=[]; paragraphs=[]; anchors={}; keywords=defaultdict(list); used=set(); ids=set()
     card_notes={}; note_boundaries=[]
@@ -332,6 +458,8 @@ def render(mode, index, plan, output):
                 # A valid quotation may still be attributed to the wrong study or condition.
                 for problem in binding_errors(row.get("bindings",[]),ev,index["sources"]):
                     report["issues"].append({"claim":key,**problem})
+                for problem in observation_errors(index,row.get("observations",[]),ev):
+                    report["issues"].append({"claim":key,"issue":problem})
                 if state in {"unreported","conflict","inference","uncertain"}:
                     report["unresolved"].append({"claim":key,"status":state,"reason":row.get("reason",""),"evidence":ev})
                     if not row.get("reason"): report["issues"].append({"claim":key,"issue":"explain uncertainty or inference"})
@@ -340,6 +468,9 @@ def render(mode, index, plan, output):
                 report["evidence_checks"]+=len(ev)
                 joined=evidence_quantities_text(ev,sheet_units,sources)
                 if state=="supported":
+                    group_issue=wrong_table_group(ev,body,table_groups,sources)
+                    if group_issue:
+                        report["issues"].append({"claim":key,**group_issue})
                     if reversed_definition(body,joined):
                         report["issues"].append({"claim":key,"issue":"the source formula reverses the numerator and denominator of this definition"})
                     assignment = verify_target_bindings(row.get("bindings",[]),body)
@@ -438,6 +569,11 @@ def render(mode, index, plan, output):
                 value_refs = [ref for ref in ev if ref == selected]
                 if not value_refs:
                     report["issues"].append({"parameter":r.get("name"),"issue":"selected run evidence must be one of the verified quotations"})
+            scope_issue=wrong_table_group(value_refs,measured,table_groups,sources,scope=r.get("scope")) if r.get("scope") else None
+            if scope_issue and state in {"reported","conflict"}:
+                report["issues"].append({"parameter":r.get("name"),"candidate":value,**scope_issue})
+                r["value"]=None
+                r["value_status"]="unsupported_group"
             quotes=evidence_quantities_text(value_refs,sheet_units,sources)
             match=(not absent_measurements(measured,quotes) if quantities(measured) else bool(value) and value in quotes)
             if unit_issue and len(quantities(value))==1:

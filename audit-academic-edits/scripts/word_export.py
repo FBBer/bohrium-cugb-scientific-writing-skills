@@ -94,6 +94,110 @@ def tracked_paragraph(paragraph, old, new, serial, stamp):
             emit_change(paragraph,new[c:d],"ins",serial,stamp)
 
 
+def inline_content(paragraph):
+    """Split editable Word runs around fields, math, hyperlinks and anchored objects."""
+    from docx.oxml.ns import qn
+    from docx.text.run import Run
+    from casework import word_text
+    ordinary = {qn("w:rPr"), qn("w:t"), qn("w:tab"), qn("w:br"), qn("w:cr")}
+    groups, depth = [], 0
+    for child in paragraph._p:
+        if child.tag == qn("w:pPr"):
+            continue
+        chars = [n.get(qn("w:fldCharType")) for n in child.iter(qn("w:fldChar"))]
+        is_field = depth > 0 or bool(chars)
+        depth += chars.count("begin") - chars.count("end")
+        if depth < 0:
+            raise ValueError("unbalanced field end")
+        text = word_text(child)
+        plain = (not is_field and child.tag == qn("w:r") and all(n.tag in ordinary for n in child)
+                 and bool(text) and Run(child, paragraph).text == text
+                 and child.find(".//" + qn("w:vertAlign")) is None)
+        kind = "text" if plain else "object"
+        if groups and (plain and groups[-1]["kind"] == "text" or is_field and groups[-1].get("open_field")):
+            group = groups[-1]
+        else:
+            group = {"kind":kind,"nodes":[],"text":""}
+            groups.append(group)
+        group["nodes"].append(child)
+        group["text"] += text
+        group["open_field"] = depth > 0
+    if depth:
+        raise ValueError("unbalanced field begin")
+    return groups
+
+
+def rewrite_inline(paragraph, old, new, tracked, serial, stamp):
+    from docx.oxml.ns import qn
+    from docx.text.run import Run
+    groups = inline_content(paragraph)
+    if "".join(g["text"] for g in groups) != old:
+        raise ValueError("the supplied segment differs from this source paragraph")
+    ops = list(edit_offsets(old,new))
+    before, after = {}, {}
+    for action,a,b,c,d in ops:
+        if action == "equal":
+            for i in range(a,b+1):
+                before.setdefault(i,c+i-a)
+                after[i] = c+i-a
+        else:
+            before.setdefault(a,c)
+            after[a] = d if a==b else c
+            before.setdefault(b,d)
+            after[b] = d
+    placements = []
+    cursor = 0
+    for g in groups:
+        end = cursor+len(g["text"])
+        if g["kind"] == "object":
+            if any((a < end and b > cursor and a != b) or (a == b and cursor < a < end)
+                   for action,a,b,_,_ in ops if action != "equal"):
+                raise ValueError("the revision changes or crosses a protected Word field, link or equation")
+            if cursor == end:
+                if cursor not in before:
+                    raise ValueError("the revision moves an anchored Word object")
+                left = right = max(before[cursor], placements[-1][1] if placements else 0)
+            else:
+                left,right = after[cursor],before[end]
+            if new[left:right] != g["text"]:
+                raise ValueError("the protected Word object cannot be aligned verbatim")
+            placements.append((left,right))
+        cursor = end
+
+    def emit_gap(nodes, target):
+        spans, start = [], 0
+        original = "".join(Run(n,paragraph).text for n in nodes)
+        for n in nodes:
+            stop = start+len(Run(n,paragraph).text)
+            spans.append((start,stop,n.rPr))
+            start = stop
+        for action,a,b,c,d in edit_offsets(original,target):
+            for low,high,fmt in spans:
+                if high <= a or low >= b:
+                    continue
+                if tracked or action == "equal":
+                    emit_change(paragraph,original[max(low,a):min(high,b)],"equal" if action=="equal" else "del",serial,stamp,fmt)
+            if action in {"insert","replace"}:
+                fmt = next((f for low,high,f in spans if low<=a<high), spans[-1][2] if spans else None)
+                emit_change(paragraph,target[c:d],"ins" if tracked else "equal",serial,stamp,fmt)
+
+    for child in list(paragraph._p):
+        if child.tag != qn("w:pPr"):
+            paragraph._p.remove(child)
+    previous, pending = 0, []
+    objects = iter(placements)
+    for g in groups:
+        if g["kind"] == "text":
+            pending.extend(g["nodes"])
+        else:
+            left,right = next(objects)
+            emit_gap(pending,new[previous:left])
+            for node in g["nodes"]:
+                paragraph._p.append(node)
+            pending,previous = [],right
+    emit_gap(pending,new[previous:])
+
+
 def revise_original(path, source, draft, dest, prefix):
     """Retain the whole supplied Word document and its unaffected parts, including original styles."""
     from docx import Document
@@ -120,35 +224,64 @@ def revise_original(path, source, draft, dest, prefix):
             raise ValueError("changed segment needs its own Word paragraph anchor: "+str(item["id"]))
         used.add(int(pos[1]))
         pair = [Paragraph(nodes[int(pos[1])-1],doc) for nodes,doc in zip(pars,docs)]
-        p = pair[0]
-        unsupported = any(child.tag not in {qn("w:r"),qn("w:pPr")} for child in p._p)
-        run_parts = {qn("w:rPr"),qn("w:t"),qn("w:tab"),qn("w:br"),qn("w:cr")}
-        if unsupported or any(c.tag not in run_parts for run in p.runs for c in run._r) or p.text != old:
-            raise ValueError("open this anchored paragraph in Word to preserve its fields, equations or source text: "+str(item["id"]))
-        spans,offset=[],0
-        for run in p.runs:
-            if run.text:
-                spans.append((offset,offset+len(run.text),run._r.rPr))
-                offset+=len(run.text)
-        for para in pair:
-            for run in list(para.runs):
-                para._p.remove(run._r)
-        for tag,a,b,c,d in edit_offsets(old,new):
-            for lo,hi,fmt in spans:
-                if lo>=b or hi<=a:
-                    continue
-                piece = old[max(lo,a):min(hi,b)]
-                if tag=="equal":
-                    for para in pair:
-                        emit_change(para,piece,"equal",serial,stamp,fmt)
-                else:
-                    emit_change(pair[1],piece,"del",serial,stamp,fmt)
-            if tag in {"insert","replace"}:
-                fmt = next((fmt for lo,hi,fmt in spans if lo<=a<hi),spans[-1][2] if spans else None)
-                emit_change(pair[0],new[c:d],"equal",serial,stamp,fmt)
-                emit_change(pair[1],new[c:d],"ins",serial,stamp,fmt)
+        try:
+            rewrite_inline(pair[0],old,new,False,serial,stamp)
+            rewrite_inline(pair[1],old,new,True,serial,stamp)
+        except ValueError as error:
+            raise ValueError(str(item["id"])+": "+str(error)) from error
     for doc, path in zip(docs,outputs):
         save_document(doc,path)
+
+
+def equation_runs(paragraph):
+    from casework import MATH, word_text
+    emitted = []
+    def visit(node):
+        text = word_text(node)
+        if not text:
+            return
+        if node.tag == MATH+"oMath":
+            if any(key.startswith("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}") for elem in node.iter() for key in elem.attrib):
+                raise ValueError("an equation has linked objects; keep it in its source document")
+            emitted.append((text,node))
+        elif len(node) and "".join(word_text(c) for c in node)==text:
+            for c in node:
+                visit(c)
+        else:
+            emitted.append((text,None))
+    visit(paragraph)
+    offset,parts = 0,[]
+    for value,element in emitted:
+        if element is not None:
+            parts.append((offset,offset+len(value),value,element))
+        offset+=len(value)
+    return parts
+
+
+def bilingual_equations(paragraph, text, parts, source_side):
+    from collections import defaultdict
+    slots = []
+    if source_side:
+        slots=parts
+    else:
+        by_value=defaultdict(list)
+        for _,_,value,node in parts:
+            by_value[value].append(node)
+        for value,nodes in by_value.items():
+            found=list(re.finditer(re.escape(value),text))
+            if len(found)!=len(nodes):
+                raise ValueError("align each original equation in the translated segment: "+value)
+            slots.extend((m.start(),m.end(),value,node) for m,node in zip(found,nodes))
+    end=0
+    for left,right,_,node in sorted(slots,key=lambda item:item[0]):
+        if left<end:
+            raise ValueError("overlapping formulas need explicit alignment")
+        if end<left:
+            paragraph.add_run(text[end:left])
+        paragraph._p.append(deepcopy(node))
+        end=right
+    if end<len(text):
+        paragraph.add_run(text[end:])
 
 
 def export_word(mode, source, draft, dest, prefix="", original_docx=None):
@@ -160,13 +293,18 @@ def export_word(mode, source, draft, dest, prefix="", original_docx=None):
         raise ValueError("Word export needs one aligned draft per source segment in reading order")
     if any(not isinstance(x.get("target"),str) or not x["target"].strip() for x in draft):
         raise ValueError("Word export needs a nonempty target in each aligned segment")
-    if original_docx:
-        if mode!="edit":
-            raise ValueError("source-template editing applies to revision mode")
+    if original_docx and mode=="edit":
         return revise_original(Path(original_docx),source,draft,dest,prefix)
     if mode == "translate":
         doc = new_document(title)
         from docx.oxml.ns import qn
+        from casework import word_text
+        from docx import Document
+        template = None
+        if original_docx:
+            if Path(original_docx).resolve() == (dest/(prefix+"bilingual.docx")).resolve():
+                raise ValueError("choose an output path different from the original manuscript")
+            template = list(Document(original_docx).element.body.iter(qn("w:p")))
         table = doc.add_table(rows=1,cols=3)
         table.autofit = False
         widths = [Cm(2.5),Cm(7),Cm(7)]
@@ -188,9 +326,22 @@ def export_word(mode, source, draft, dest, prefix="", original_docx=None):
         for row in draft:
             item = original[row["id"]]
             location = str(item.get("location") or item["id"])
-            for cell,width,text in zip(table.add_row().cells,widths,(location,item["text"],row["target"])):
+            parts = []
+            if template is not None:
+                pos = re.fullmatch(r"word/document\.xml:p([1-9]\d*)",location)
+                if pos and int(pos[1])<=len(template):
+                    paragraph = template[int(pos[1])-1]
+                    if word_text(paragraph)!=item["text"]:
+                        raise ValueError("source paragraph and selected translation segment differ: "+location)
+                    parts = equation_runs(paragraph)
+                elif not re.fullmatch(r"word/(?:foot|end)notes\.xml:[^:]+:p[1-9]\d*",location):
+                    raise ValueError("source paragraph not identified in this document: "+location)
+            for column,(cell,width,text) in enumerate(zip(table.add_row().cells,widths,(location,item["text"],row["target"]))):
                 cell.width = width
-                cell.paragraphs[0].add_run(text)
+                if parts and column:
+                    bilingual_equations(cell.paragraphs[0],text,parts,column==1)
+                else:
+                    cell.paragraphs[0].add_run(text)
         save_document(doc,dest/(prefix+"bilingual.docx"))
     else:
         revised, changes = new_document(title), new_document(title)

@@ -231,11 +231,11 @@ def mupdf_pages(doc):
         lines, images = [], []
         data=page.get_text("dict",flags=0)
         for block in data["blocks"]:
-            for line in block.get("lines",[]):
+            for line_index,line in enumerate(block.get("lines",[])):
                 spans=[{"text":s["text"],"size":round(s["size"],2),"flags":s["flags"],"bbox":s["bbox"],"baseline":s["origin"][1]} for s in line["spans"]]
                 value="".join(s["text"] for s in spans)
                 if value.strip():
-                    row=make_line(value,line["bbox"],method="text",spans=spans)
+                    row=make_line(value,line["bbox"],method="text",spans=spans,block=block.get("number"),block_line=line_index)
                     display=readable_exponents(spans)
                     if display!=value:
                         row["display_text"]=display
@@ -398,6 +398,47 @@ def continued_tables(pages, objects):
     return linked
 
 
+def reading_paragraphs(pages):
+    """Reassemble consecutive PDF lines from the same native paragraph, retaining physical line offsets."""
+    records = []
+    for page in pages:
+        group, previous = None, None
+        for line in page["lines"]:
+            if line["role"].startswith("running_"):
+                group,previous = None,None
+                continue
+            block = line.get("block")
+            box = line["bbox"]
+            previous_box = previous["bbox"] if previous else None
+            same = (group is not None and block is not None and block==previous.get("block") and
+                    line.get("block_line")==previous.get("block_line",-2)+1 and line["role"]==previous["role"] and
+                    line["role"] in {"body","text","paragraph","caption"} and
+                    box[1] >= previous_box[1]-1 and
+                    box[1]-previous_box[3] <= 1.2*max(1,previous_box[3]-previous_box[1]) and
+                    box[0] < previous_box[2] and box[2] > previous_box[0])
+            if not same:
+                group = {"page":page["page"],"role":line["role"],"text":"","spans":[]}
+                records.append(group)
+            value = line.get("display_text",line["text"])
+            if same:
+                left = group["text"][-1:]
+                separator = "" if left in {"-","\u00ad","‐"} or (re.match(r"[\u3400-\u9fff]",left) and re.match(r"[\u3400-\u9fff]",value)) else " "
+                group["text"] += separator
+            start = len(group["text"])
+            group["text"] += value
+            group["spans"].append({"line":line["id"],"bbox":box,"start":start,"end":len(group["text"]),"method":line.get("method")})
+            previous = line
+    return records
+
+
+def same_ocr_line(candidate, original):
+    if candidate["text"].strip().casefold() != original["text"].strip().casefold():
+        return False
+    a,b = candidate["bbox"],original["bbox"]
+    overlap = [max(0,min(a[i+2],b[i+2])-max(a[i],b[i])) for i in (0,1)]
+    return all(overlap[i] >= 0.5*max(1,min(a[i+2]-a[i],b[i+2]-b[i])) for i in (0,1))
+
+
 def structure(pages,bookmarks):
     outline=[];objects={}
     for page in pages:
@@ -419,7 +460,7 @@ def structure(pages,bookmarks):
                 item[field].append(found)
     for item in objects.values():
         item["first_mention"]=next(iter(item["mentions"]),None)
-    return {"headings":outline,"pdf_bookmarks":bookmarks,"objects":list(objects.values()),
+    return {"paragraphs":reading_paragraphs(pages),"headings":outline,"pdf_bookmarks":bookmarks,"objects":list(objects.values()),
             "continued_tables":continued_tables(pages,objects.values())}
 
 
@@ -430,16 +471,21 @@ def run(path,dest,language):
         try: import fitz
         except ImportError: fitz=None
     doc=None
+    rotations=[]
     try:
         if fitz is not None:
             doc=fitz.open(path)
             if doc.needs_pass: raise ValueError("encrypted PDF requires an authorized password")
+            for page in doc:
+                rotations.append(page.rotation)
+                if page.rotation:
+                    page.set_rotation(0)
             pages=mupdf_pages(doc)
         elif shutil.which("pdftotext"):
             pages=poppler_pages(path)
         else:
             raise ValueError("requires PyMuPDF or Poppler pdftotext")
-        result={"file":path.name,"coordinate_system":"PDF points from top left; physical pages start at 1","pages":[],"issues":[],"status":"success"}
+        result={"file":path.name,"coordinate_system":"PDF points from the top left of the unrotated page; physical pages start at 1","pages":[],"issues":[],"status":"success"}
         margins=defaultdict(set)
         with tempfile.TemporaryDirectory() as temp:
             for n,(width,height,lines,images,tables) in enumerate(pages,1):
@@ -457,7 +503,7 @@ def run(path,dest,language):
                     try:
                         recovered=ocr(path,n,Path(temp),width,height,doc,language,region)
                         def duplicate(a):
-                            return any(a["text"].strip().casefold()==b["text"].strip().casefold() and abs(a["bbox"][1]-b["bbox"][1])<9 for b in lines)
+                            return any(same_ocr_line(a,b) for b in lines)
                         new=[a for a in recovered if not duplicate(a)]
                         lines.extend(new)
                         if not recovered:
@@ -471,7 +517,7 @@ def run(path,dest,language):
                     if a["bbox"][3]<height*.095 or a["bbox"][1]>height*.91:
                         identity=re.sub(r"\d+","#",a["text"].strip().casefold())
                         margins[(identity,"top" if a["bbox"][3]<height*.095 else "bottom")].add(n)
-                result["pages"].append({"page":n,"size":[width,height],"lines":lines,"images":images,"tables":tables})
+                result["pages"].append({"page":n,"original_rotation":rotations[n-1] if rotations else None,"size":[width,height],"lines":lines,"images":images,"tables":tables})
         text=[]
         for p in result["pages"]:
             height=p["size"][1]

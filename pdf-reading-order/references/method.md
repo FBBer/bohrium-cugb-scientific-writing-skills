@@ -17,3 +17,5 @@ python3 "$S/scripts/parse_pdf.py" "/input/实际文件.pdf" "/app/work/layout.js
 独立环境可安装 Python 包 PyMuPDF（本地实测 2.1），或系统 Poppler 的 pdftotext/pdftoppm；OCR 实测 Tesseract 5.5.2，需要对应的语言数据。用 python3 -m pip install PyMuPDF 安装到运行脚本的同一个解释器，然后先执行 python3 -c "import pymupdf"。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 续表仅按原文明确的续表标签、连续物理页与兼容列建立。表号相同但列头从压力变为温度时，保留独立分段。极窄的空白线框可以作为分隔线，原页的完整格网仍在 rows、row_cells 里。
+
+structure.paragraphs 保留行号、坐标以及该行在连续正文中的起止字符。排印连字符保留原状。旋转页记录 original_rotation，坐标使用旋转前的页面。

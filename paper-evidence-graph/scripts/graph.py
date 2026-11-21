@@ -1,5 +1,6 @@
 """Build a provenance-preserving directed multigraph and run auditable case-specific queries."""
 import argparse
+from relation_evidence import incompatible_relation
 import collections
 import hashlib
 import json
@@ -98,6 +99,13 @@ def check_relation_polarity(edges, nodes, sources, issues):
         for ref in edge["evidence"]:
             quote = ref["quote"]
             passage = sources.get(ref["id"], quote)
+            subject,target = nodes[edge["source"]],nodes[edge["target"]]
+            if incompatible_relation(quote,edge.get("display_predicate") or edge["predicate"],
+                                     [subject["label"],*subject.get("aliases",[])],
+                                     [target["label"],*target.get("aliases",[])],edge["polarity"]):
+                issues.append({"edge":edge["predicate"],"evidence":ref,
+                               "issues":["the quoted clause reverses or qualifies this directed relation"]})
+                continue
             excerpts = [m.span() for m in re.finditer(re.escape(quote), passage)]
             signs = {
                 passage_polarity(passage, m)

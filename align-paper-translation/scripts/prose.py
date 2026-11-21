@@ -182,7 +182,7 @@ def audit(source,draft,mode):
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("mode",choices=["translate","edit"]);p.add_argument("source");p.add_argument("draft");p.add_argument("outdir",type=Path);p.add_argument("--strict",action="store_true")
     p.add_argument("--word",action="store_true",help="also export an editable parallel text or clean and tracked Word manuscripts")
-    p.add_argument("--original-docx",type=Path,help="revise anchored plain paragraphs in the original Word template")
+    p.add_argument("--original-docx",type=Path,help="reuse the source Word manuscript for tracked edits or bilingual equations")
     p.add_argument("--preview",action="store_true",help="also render the Word deliverables as PDF using LibreOffice")
     a=p.parse_args(); source,draft=read(a.source),read(a.draft);report, manuscript=audit(source,draft,a.mode)
     name="bilingual.md" if a.mode=="translate" else "revised.md"

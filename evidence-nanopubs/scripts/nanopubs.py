@@ -1,5 +1,6 @@
 """Serialize evidence-checked atomic claims as standard four-graph nanopublications."""
 import argparse
+from relation_evidence import incompatible_relation
 import hashlib
 import json
 from pathlib import Path
@@ -95,6 +96,10 @@ def export(index,record,out):
         if not evidence: errors.append("needs a minimal original quotation")
         if item.get("evidence_type")=="inference" and not item.get("reason"): errors.append("missing inferential bridge")
         if not errors and item["evidence_type"]=="direct":
+            incompatible = [e for e in evidence if incompatible_relation(e["quote"],item["predicate"],
+                                                                           [item["subject"]],[item["object"]],item["polarity"])]
+            if incompatible:
+                errors.append("a cited clause reverses or qualifies this direct relation")
             direction=oriented_comparison(item["statement"],item["subject"],item["object"])
             sources_signs={oriented_comparison(e["quote"],item["subject"],item["object"]) for e in evidence}-{None}
             if direction and sources_signs=={-direction}:

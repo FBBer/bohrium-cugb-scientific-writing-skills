@@ -17,3 +17,5 @@ citation-audit.json 给出每处引文所在原句、该句及标记在原稿中
 JSON、RIS 和带标签的 EndNote 导入使用 Python 标准库。BibTeX 导入需要 Pandoc，本地实测版本 3.10.1；可安装系统提供的 pandoc 包，并用 pandoc --version 核对。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 对于 [@article-key, p. 12; -@other] 与 LaTeX 文献命令，保留页码、引文命令及顺序。确属同一条记录的旧键转到规范键，无法匹配的键保持原文并列出位置。混合使用数字与键时，保留原稿的数字标记并分别对应文献。代码和行内数学中的示例标记保留。
+
+原库给出的年份后缀可写入 year-suffix，例如 a。作者与年份匹配后，原句和起止位置写入 citation-audit.json。数字与作者年份混合出现时保留原有标记。有多个同姓同年候选时，查原文题名或 DOI 再决定。

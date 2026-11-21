@@ -218,7 +218,7 @@ def reconcile_keys(manuscript, merged, mapping, decisions, issues, keyed):
                    "occurrences":occ,"metadata_status":[metadata_status(r,issues) for r in merged],"issues":issues}
 
 
-def reconcile(records,manuscript,labels=None):
+def reconcile_numbered_and_keyed(records,manuscript,labels=None):
     keys = list(keyed_groups(manuscript))
     if not keys:
         return numeric_references(records,manuscript,labels)
@@ -322,6 +322,112 @@ def numeric_references(records,manuscript,labels=None,skip=None):
     return revised,{"cited":used,"uncited":[r for i,r in enumerate(merged) if i not in original_numbers],"merge_decisions":decisions,
                     "numbering_status":numbering_status,"label_source":basis,
                     "occurrences":occ,"metadata_status":[metadata_status(r,issues) for r in merged],"issues":issues}
+
+
+YEAR_TOK = r"(?:1[5-9]\d{2}|20\d{2})(?:[a-z])?"
+YEAR_GROUP = re.compile(r"[（(]([^()（）\n]{1,430})[）)]")
+LESS_LOCATOR = re.compile(r"(?:\s*[,，]\s*(?:pp?\.|pages?|chap\.|sec\.)\s*[\d–—-]+)\s*$",re.I)
+
+
+def author_year_occurrences(manuscript, records, ignored):
+    """Bind printed author/year citations to the supplied library; never invent suffixes."""
+    signatures, known = {}, []
+    for index,rec in enumerate(records,1):
+        authors = [str(a.get("family") or a.get("literal") or "").strip() for a in rec.get("author",[]) if isinstance(a,dict)]
+        authors = [name for name in authors if name]
+        yr = str(year(rec) or "")
+        if not authors or not re.fullmatch(YEAR_TOK,yr):
+            continue
+        suffix = yr[4:] or str(rec.get("year-suffix") or "")
+        labels = {authors[0]} if len(authors)==1 else {authors[0]+" et al.",authors[0]+" et al",authors[0]+"等"}
+        if len(authors)>1:
+            for sep in (" and "," & ","和","与"):
+                labels.add(", ".join(authors[:-1])+sep+authors[-1])
+            labels.add("、".join(authors))
+        for label in labels:
+            signatures.setdefault((norm(label),yr[:4]),[]).append((str(rec.get("id",index)),suffix))
+            known.append(label)
+    first = sorted(set(known),key=lambda x:(-len(x),x))
+    narrative = (re.compile(r"(?<![\w-])(?:"+"|".join(re.escape(n) for n in first)+r")\s*$",re.I) if first else None)
+    ends = sentence_breaks(manuscript)
+    result,issues = [],[]
+    def bind(label,yr,start,stop):
+        candidates = signatures.get((norm(label),yr[:4]),[])
+        if yr[4:]:
+            candidates = [pair for pair in candidates if pair[1].casefold()==yr[4:].casefold()]
+        ids = list(dict.fromkeys(i for i,_ in candidates))
+        sentence = citation_context(manuscript,start,ends)
+        entry = {"source_offsets":[start,stop],"old":manuscript[start:stop],"new":manuscript[start:stop],
+                 "sentence":sentence,"record_ids":ids if len(ids)==1 else [],"style":"author-year"}
+        if len(ids)!=1:
+            entry["candidates"]=ids
+            issues.append({"offset":start,"issue":"ambiguous author-year citation" if ids else "unresolved author-year citation",
+                           "author":label,"year":yr,"candidates":ids,"sentence":sentence})
+        result.append(entry)
+    for m in YEAR_GROUP.finditer(manuscript):
+        if any(a < m.end() and b > m.start() for a,b in ignored):
+            continue
+        content = m[1]
+        if re.fullmatch(YEAR_TOK,content.strip()):
+            lead = narrative.search(manuscript[max(0,m.start()-180):m.start()]) if narrative else None
+            if lead:
+                bind(lead[0].strip(),content.strip(),max(0,m.start()-180)+lead.start(),m.end())
+            continue
+        for part in re.finditer(r"[^;；]+",content):
+            fragment = LESS_LOCATOR.sub("",part[0])
+            parsed = re.fullmatch(r"\s*(?:(?:see(?: also)?|e\.g\.|cf\.)[, ]+)?(.+?)\s*[,，]?\s+("+YEAR_TOK+r")\s*",fragment,re.I)
+            if not parsed:
+                parsed = re.fullmatch(r"\s*([^,，]+?)\s*[,，]\s*("+YEAR_TOK+r")\s*",fragment)
+            if not parsed:
+                continue
+            label,yr = parsed[1].strip(),parsed[2]
+            label = label.rstrip(",，").strip()
+            if not label:
+                continue
+            # Unknown names are reported only for conventional comma-delimited citations.
+            scholarly = ("," in fragment or "，" in fragment) and bool(re.fullmatch(
+                r"(?:[A-ZÀ-ÖØ-Þ][\w’'\-]+(?:\s+(?:et al\.?|[A-ZÀ-ÖØ-Þ][\w’'\-]+))?|[\u3400-\u9fff]{2,8}等?)",label))
+            if (norm(label),yr[:4]) not in signatures and not scholarly:
+                continue
+            offset = m.start(1)+part.start()
+            bind(label,yr,offset+parsed.start(1),offset+parsed.end(2))
+    return result,issues
+
+
+def reconcile(records,manuscript,labels=None):
+    revised,report = reconcile_numbered_and_keyed(records,manuscript,labels)
+    merged,_,_,_ = groups(records)
+    ignored = [m.span() for m in PROTECTED.finditer(manuscript)] + [m.span() for m,_ in keyed_groups(manuscript)]
+    heading = REF_HEAD.search(manuscript)
+    if heading:
+        tail = NEXT_SECTION.search(manuscript,heading.end())
+        ignored.append((heading.start(),tail.start() if tail else len(manuscript)))
+    author_year,issues = author_year_occurrences(manuscript,merged,ignored)
+    if not author_year:
+        return revised,report
+    previous = report["occurrences"]
+    if any("style" not in o for o in previous):
+        # Preserve the original printed number system, including mixed-format bibliographies.
+        changed = [(o["source_offsets"],o["new"]) for o in previous if o["new"]!=o["old"] and
+                   (o["old"].startswith("\\") or "@" in o["old"])]
+        revised = manuscript
+        for (a,b),value in sorted(changed,reverse=True):
+            revised = revised[:a]+value+revised[b:]
+        for o in previous:
+            if "@" not in o["old"] and not o["old"].startswith("\\"):
+                o["new"]=o["old"]
+    rows = sorted(previous+author_year,key=lambda o:o["source_offsets"][0])
+    ids = {str(r.get("id",i)):r for i,r in enumerate(merged,1)}
+    cited = list(dict.fromkeys(rid for o in rows for rid in o["record_ids"]))
+    for entry in report.get("cited",[]):
+        rid = str(entry["record"].get("id",""))
+        if rid in ids and rid not in cited:
+            cited.append(rid)
+    report.update(occurrences=rows,issues=report["issues"]+issues,
+                  label_source="mixed_with_author_year" if previous else "author_year",
+                  numbering_status="original_labels_preserved",cited=[{"number":i,"record":ids[rid]} for i,rid in enumerate(cited,1)],
+                  uncited=[r for rid,r in ids.items() if rid not in cited])
+    return revised,report
 
 
 if __name__=="__main__":

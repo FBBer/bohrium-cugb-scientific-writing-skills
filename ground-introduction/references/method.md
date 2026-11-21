@@ -25,3 +25,9 @@ python3 "$S/scripts/compose.py" introduction /app/work/sources.json /app/work/in
 常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 比较时将同一句里的两个研究对象和实验条件分别放入 bindings；subject_in_source 与 condition_in_source 须在同一来源子句。翻译并重排时可用 subject_in_text 标出中文稿里的对象。数值读自表格时连同相应列头一起引用；写比值前核对分子、分母及对象顺序。
+
+内嵌文献可用 python3 scripts/casework.py rows --source case.json --where paper_id A --where section Results --select text。字段名和取值用真实材料中的拼写。用 matched_fields 的论文编号和结果段落共同支撑转述。
+
+需要登记同一行的读数时，可在该句添加 observations。例如 {"source":"runs.tsv","where":{"sample":"Chalk","condition":"wet"},"field":"Pressure (kPa)","value_id":"实际读数的 id"} 是数组中的一项。按数据表的真实字段填写，并在 evidence 中一并列出筛选字段和读数。若同一条件有多次测量，另加观测编号区分。
+
+引用分隔表中的数值格时，正文明确点名的组别须与同一行的样品或条件一致。参数条目中的 scope 采用相同的对应方式。多组比较需分别引用实际测量的各行。

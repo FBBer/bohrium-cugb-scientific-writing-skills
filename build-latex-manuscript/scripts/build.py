@@ -101,7 +101,7 @@ def manual_compile(tool, main, cwd, records, env):
     stem = main.stem
     for _ in range(6):
         rc, output = invoke([tool, "-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error",
-                             "-file-line-error", main.as_posix()], cwd, records, env)
+                             "-recorder", "-file-line-error", main.as_posix()], cwd, records, env)
         if rc:
             return rc, output, False
         aux, bcf = cwd / (stem + ".aux"), cwd / (stem + ".bcf")
@@ -124,6 +124,47 @@ def manual_compile(tool, main, cwd, records, env):
     return rc, output, False
 
 
+def compiler_inputs(root, cwd, main, source):
+    """Find project-local sources which TeX and its bibliography backend actually opened."""
+    inputs = set()
+    root = root.resolve()
+    recorder = cwd/(main.stem+".fls")
+    def add(value):
+        raw = Path(value.strip().strip('"'))
+        path = (cwd/raw).resolve()
+        if path.is_relative_to(root) and (source/path.relative_to(root)).is_file():
+            inputs.add(path.relative_to(root).as_posix())
+    if recorder.is_file():
+        for line in recorder.read_text(errors="replace").splitlines():
+            if line.startswith("INPUT "):
+                add(line[6:])
+    bibliography = cwd/(main.stem+".blg")
+    if bibliography.is_file():
+        for line in bibliography.read_text(errors="replace").splitlines():
+            m = re.search(r"(?:Database file #\d+:\s*(.+)|(?:Found|Reading) BibTeX data source ['\"]([^'\"]+)['\"])",line,re.I)
+            if m:
+                add(m[1] or m[2])
+    return {"recorder":recorder.is_file(),"files":sorted(inputs)}
+
+
+def source_diagnostics(log, source, directory):
+    found = []
+    for raw in log.splitlines():
+        m = re.match(r"^\s*(.+?\.(?:tex|sty|cls|bib)):(\d+):\s*(.+)$",raw,re.I)
+        if not m:
+            continue
+        path = (source/directory/m[1]).resolve()
+        if not path.is_relative_to(source) or not path.is_file():
+            continue
+        position = int(m[2])
+        lines = path.read_text(errors="replace").splitlines()
+        item = {"file":path.relative_to(source).as_posix(),"line":position,"message":m[3],
+                "source":lines[position-1] if 0<position<=len(lines) else None}
+        if item not in found:
+            found.append(item)
+    return found
+
+
 def compile_once(tool, main, source, pdf, directory=Path(".")):
     records = []
     env = dict(os.environ, openout_any="p", openin_any="p", shell_escape="f")
@@ -136,7 +177,7 @@ def compile_once(tool, main, source, pdf, directory=Path(".")):
             rc, output, stable = 127, tool + " not installed", False
         elif shutil.which("latexmk"):
             argv = ["latexmk", "-norc", FLAGS[tool], "-no-shell-escape", "-interaction=nonstopmode",
-                    "-halt-on-error", "-file-line-error", main.as_posix()]
+                    "-halt-on-error", "-recorder", "-file-line-error", main.as_posix()]
             rc, output = invoke(argv, cwd, records, env)
             stable = rc == 0
         else:
@@ -150,7 +191,8 @@ def compile_once(tool, main, source, pdf, directory=Path(".")):
                     shutil.copy2(built, pdf)
         for record in records:
             record["cwd"] = directory.as_posix()
-    return rc, stable, records, log
+        inputs = compiler_inputs(root,cwd,main,source)
+    return rc, stable, records, log, inputs
 
 
 def build(project, main, out, engine=None):
@@ -193,7 +235,7 @@ def build(project, main, out, engine=None):
     directory = Path(".")
     while (tool, directory) not in tried:
         tried.add((tool, directory))
-        rc, stable, final_records, log = compile_once(tool, rel, source, pdf, directory)
+        rc, stable, final_records, log, inputs = compile_once(tool, rel, source, pdf, directory)
         records.extend(final_records)
         attempt = {"engine":tool, "cwd":directory.as_posix(), "exit":rc}
         attempts.append(attempt)
@@ -227,7 +269,8 @@ def build(project, main, out, engine=None):
         version = version_lines[0] if version_lines else tool
     report = {"status": "partial" if issues else "success", "engine": tool, "version": version,
               "main": rel.as_posix(), "source_sha256": originhash, "converged": stable,
-              "commands": records, "engine_attempts": attempts, "diagnostics": issues,
+              "commands": records, "engine_attempts": attempts,
+              "project_inputs": inputs, "source_diagnostics": source_diagnostics(log,source,directory), "diagnostics": issues,
               "pdf": pdf.name if pdf.is_file() else None}
     write(out / "build.json", report)
     return report

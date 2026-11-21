@@ -24,3 +24,9 @@ python3 "$S/scripts/compose.py" methods /app/work/sources.json /app/work/methods
 结构化 YAML 解析可用 python3 -m pip install PyYAML，本地实测 6.0.3。纯文本键值、JSON 和 CSV 使用 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 当参数的 evidence 含配置和实测日志时，selected_evidence 值是其中一项完整的 {id,quote}；最终值要能在选定的那一条得到。做比值、均值与单位换算时可分别引用 Word 或 Excel 数据格及对应列头，把表示单位的原表头也列入 evidence。
+
+例如 python3 scripts/casework.py rows --source runs.tsv --where sample Chalk --where condition wet --select 'Pressure (kPa)'。读取 matched_fields 中的样本和条件、values 中的读数及 header。把这些字段的 id 和 quote 放入方法句的 evidence。
+
+需要登记同一行的读数时，可在该句添加 observations。例如 {"source":"runs.tsv","where":{"sample":"Chalk","condition":"wet"},"field":"Pressure (kPa)","value_id":"实际读数的 id"} 是数组中的一项。按数据表的真实字段填写，并在 evidence 中一并列出筛选字段和读数。若同一条件有多次测量，另加观测编号区分。
+
+引用分隔表中的数值格时，正文明确点名的组别须与同一行的样品或条件一致。参数条目中的 scope 采用相同的对应方式。多组比较需分别引用实际测量的各行。

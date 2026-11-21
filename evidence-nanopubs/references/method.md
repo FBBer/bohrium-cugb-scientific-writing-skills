@@ -17,3 +17,5 @@ python3 "$S/scripts/nanopubs.py" /app/work/sources.json /app/work/claims.json /a
 生成 TriG 使用 Python 标准库。在独立环境可用 python3 -m pip install rdflib 安装独立 RDF 解析器，本地验证版本为 7.6.0。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 每项命题的 RDF 描述含 rdf:subject、rdf:predicate、rdf:object 和限定信息。仅直接、肯定、已报告的观察在相应断言图中另有该关系三元组；否定、推断和可能性按限定命题查询。提供标识时采用来源所用的绝对 IRI。未给受控标识时，程序按出处与语境建立本地标识。
+
+直接证据写成被动语态时，将 by 后的施事放在关系起点。支持常见英文动词的明显反向、否定与可能性识别。引文为复句、关系需跨段推断时，保留必要的完整语境与推理依据。

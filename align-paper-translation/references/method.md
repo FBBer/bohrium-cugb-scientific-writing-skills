@@ -21,3 +21,5 @@ python3 "$S/scripts/prose.py" translate /app/work/segments.json /app/work/transl
 需要 Word 时追加 --word（依赖 python-docx）。bilingual.docx 依次列出段号或位置、原句和译句。长段可自然跨页，表头在后页重复。按本题需要用 LibreOffice 导出 PDF，并打开原始页查看图注、公式与分页。已有模板中的复杂对象应在原件中保留。
 
 需要同时查看 PDF 时追加 `--preview`，程序用 LibreOffice 渲染实际 Word 文件。中文页面在可用时加载当前机器的中文字体。
+
+选取原稿段落可用 python3 scripts/segments.py /app/work/sources.json paper.docx /app/work/segments.json。表格中的段落按原件顺序出现一次。材料若是 JSON 或 CSV，在命令后加 --field text，换成正文的实际字段。Word 译稿可用 --original-docx 指向同一原稿，原文和译文都可用 Word 公式编辑器继续修改。对照时用原式的文字表示定位，原式在译句中出现次数有歧义时先核对该段。
