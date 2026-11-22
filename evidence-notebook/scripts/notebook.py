@@ -14,7 +14,13 @@ from pathlib import Path
 from casework import prepare, write, atomic_text
 from chapter_notes import extract
 from study_tables import collect_tables
-from notebook_reader import compact, issue_label, render as render_html
+from notebook_reader import (
+    compact,
+    issue_label,
+    join_passage,
+    passage_groups,
+    render as render_html,
+)
 from notebook_publish import publish
 
 LABELS = {
@@ -172,15 +178,11 @@ def build(folder, out, staged, selected, focus, limit, language, table_links):
                 following = "".join(
                     f" · [{scope}](#note-{q['anchor']})" for q in conditions
                 )
-                body.append(
-                    f'<a id="note-{a}"></a>**{labels[r["role"]]}**　'
-                    f"{compact(r['quote'])} [〔{count}〕](#ref-{count}){following}"
-                )
                 target = card["original_href"] + (
                     f"#page={r['page']}" if r.get("page") else ""
                 )
                 refs.append(
-                    f'<a id="ref-{count}"></a>〔{count}〕 [{file} · {r["location"]}](<{target}>) · {r["start"]}–{r["end"]}'
+                    f'<a id="ref-{count}"></a>〔{count}〕 [{file} · {r["location"]}](<{target}>) · {r["start"]}–{r["end"]}{following}'
                 )
                 rows.append(
                     [
@@ -204,6 +206,18 @@ def build(folder, out, staged, selected, focus, limit, language, table_links):
                         ),
                     ]
                 )
+            for group in passage_groups(ch["anchors"], items, lookup):
+                raw = lookup[group[0]["id"]]["text"]
+
+                def markdown_note(note):
+                    return f'<a id="note-{note["anchor"]}"></a>' + compact(
+                        note["quote"]
+                    )
+
+                citations = " ".join(
+                    f"[〔{n['reference']}〕](#ref-{n['reference']})" for n in group
+                )
+                body.append(join_passage(group, raw, markdown_note) + " " + citations)
         matrix.append(
             [
                 file,
@@ -233,9 +247,7 @@ def build(folder, out, staged, selected, focus, limit, language, table_links):
     atomic_text(staged / "notes.md", "\n\n".join(body) + "\n")
     atomic_text(staged / "comparison.tsv", tsv(rows))
     atomic_text(staged / "study-matrix.tsv", tsv(matrix))
-    atomic_text(
-        staged / "notebook.html", render_html(cards, tables, lookup, labels, en)
-    )
+    atomic_text(staged / "notebook.html", render_html(cards, tables, lookup, en=en))
     write(staged / "reading-cards.json", cards)
     write(staged / "tables.json", tables)
     return sum(bool(card["notes"]) for card in cards.values()), count

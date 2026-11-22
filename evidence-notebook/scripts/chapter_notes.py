@@ -6,10 +6,10 @@ from pathlib import Path
 from paper_structure import folded, heading_info
 
 ROLE_CUES = {
-    "limitation": r"\b(?:limited to|limited by|appl(?:ies|y) only|only (?:included|considered|tested|covered|during|under)|(?:under|in|from) [^.]{0,35}\bonly\b|(?:estimate|value|result|analysis|comparison) excludes|did not (?:test|measure|evaluate|include)|not (?:tested|measured|evaluated)|could not|remains? (?:unclear|unknown)|cannot be (?:generalized|generalised))\b|仅(?:限|适用|覆盖|在)|未(?:覆盖|评估|验证|测试)|没有覆盖|局限在|不适用于",
+    "limitation": r"\b(?:limited to|limited by|appl(?:ies|y) only|only (?:included|considered|tested|covered|during|under)|(?:under|in|from) [^.]{0,35}\bonly\b|(?:estimate|value|result|analysis|comparison) excludes|did not (?:test|measure|evaluate|include)|not (?:tested|measured|evaluated)|could not|remains? (?:unclear|unknown)|cannot be (?:generalized|generalised))\b|只(?:测了|观测了|记录了)|仅(?:限|适用|覆盖|在)|未(?:覆盖|评估|验证|测试)|没有覆盖|局限在|不适用于",
     "interpretation": r"\b(?:we (?:suggest|hypothesi[sz]e|speculate)|may reflect|might be due|may (?:explain|indicate)|suggests? that|could be attributed)\b|作者推测|可能归因于|提示|可能反映",
     "question": r"\b(?:we (?:asked|examined|investigated) whether|research question|(?:aim(?:ed)?|objective)(?: of [^.]{0,32})? (?:is |was )?(?:to|whether)|we seek to)\b|旨在|研究目的是|研究问题|考察是否",
-    "finding": r"\b(?:achiev(?:e|es|ed)|outperform\w*|decreased|increased|unchanged|found that|was observed|observed (?:offset|bias|difference)|median (?:error|bias)|(?:error|bias|lag|offset|difference|uncertaint(?:y|ies)) (?:was|were|of)|results? in|improves?|yields?|reduc(?:es|ed))\b|偏差(?:为|是)|误差(?:为|是)|升至|降至|下降|减少|增加|观测到|无显著|中位数为",
+    "finding": r"\b(?:achiev(?:e|es|ed)|outperform\w*|decreased|increased|unchanged|found that|was observed|observed (?:offset|bias|difference)|median (?:error|bias)|(?:error|bias|lag|offset|difference|uncertaint(?:y|ies)) (?:was|were|of)|results? in|improves?|yields?|reduc(?:es|ed))\b|偏差(?:也|均)?(?:为|是)|误差(?:为|是)|升至|降至|下降|减少|增加|观测到|无显著|中位数为",
     "method": r"\b(?:we (?:sampled|collected|trained|compared|evaluate[d]?|propose|measured|used)|participants|replicates|recorded independently|were (?:recorded|assigned)|prespecified|using [^.]{0,36} (?:measurements|observations)|dataset is coupled|dataset (?:comprised|contained)|data from)\b|采样|采集|采用|每隔|重复测量|实验设计|记录测点",
 }
 PATTERNS = {key: re.compile(val, re.I) for key, val in ROLE_CUES.items()}
@@ -18,7 +18,7 @@ EXTERNAL = re.compile(
     re.I,
 )
 QUALIFIER = re.compile(
-    r"^(?:(?:this|these|the) (?:effect|estimate|value|finding|result|improvement|comparison|analysis|pattern)s?\b|only (?:at|under|during)|(?:本|该)(?:效应|数值|估计|结果|结论)|这一(?:结果|现象)|上述(?:结果|结论))",
+    r"^(?:(?:this|these|the) (?:effect|estimate|value|finding|result|improvement|comparison|analysis|pattern)s?\b|only (?:at|under|during)|(?:本|该)(?:效应|数值|估计|结果|结论)|这一(?:结果|现象)|上述(?:结果|结论)|(?:这|本)(?:次|组)(?:比对|读数|观测|复测))",
     re.I,
 )
 BOUNDARY = re.compile(
@@ -52,6 +52,10 @@ def classify(quote, section_role):
     q = folded(quote)
     if EXTERNAL.search(q):
         return "context", True
+    if section_role in ("abstract", "question") and q.rstrip('”"').endswith(
+        ("?", "？")
+    ):
+        return "question", False
     cues = [key for key, expr in PATTERNS.items() if expr.search(q)]
     if cues and cues[0] in ("limitation", "interpretation", "question"):
         return cues[0], False

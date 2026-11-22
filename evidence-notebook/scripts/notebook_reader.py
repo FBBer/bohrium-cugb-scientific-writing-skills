@@ -24,14 +24,14 @@ a:hover,summary:hover {background:#e8b24f}
 details {margin:3px 0 14px}
 summary {width:fit-content;cursor:pointer}
 blockquote {border-left:3px solid #000;margin:8px 0 16px;padding:2px 0 2px 14px;overflow-wrap:anywhere}
-mark,:target.role-line {background:#efc36d;color:#000}
+mark,.passage:target {background:#efc36d;color:#000}
 .scroll {overflow-x:auto}
 table {border-collapse:collapse;width:100%;margin:4px 0 12px;text-align:left;font-variant-numeric:tabular-nums}
 th,td {padding:7px 17px 7px 0;vertical-align:top;overflow-wrap:anywhere}
 thead {border-bottom:1.5px solid #000}
 tbody tr+tr {border-top:1px solid #000}
 td:last-child,th:last-child {padding-right:0}
-.role {font-weight:650}
+.passage {scroll-margin-top:18px}
 ul {margin:4px 0 14px;padding-left:24px}
 @media(max-width:600px){body{font-size:18px}th,td{padding-right:10px}.scroll table{min-width:365px}}
 @media print {body{font-size:11pt}main{max-width:none;padding:0}.scroll{overflow:visible}
@@ -47,6 +47,51 @@ def compact(x):
             str.maketrans({"ﬁ": "fi", "ﬂ": "fl", "ﬀ": "ff", "ﬃ": "ffi", "ﬄ": "ffl"})
         ).split()
     )
+
+
+def passage_groups(anchors, items, sources):
+    """Only rejoin adjacent sentences already present in the same original paragraph."""
+    group = []
+    for anchor in anchors:
+        note = items[anchor]
+        raw = sources[note["id"]]["text"]
+        if raw[note["start"] : note["end"]] != note["quote"]:
+            raise ValueError("Source quote mismatch: " + note["location"])
+        if group:
+            previous = group[-1]
+            if (
+                previous["id"] != note["id"]
+                or previous["end"] > note["start"]
+                or raw[previous["end"] : note["start"]].strip()
+            ):
+                yield group
+                group = []
+        group.append(note)
+    if group:
+        yield group
+
+
+def join_passage(group, raw, fmt):
+    pieces = []
+    for i, note in enumerate(group):
+        if i and raw[group[i - 1]["end"] : note["start"]]:
+            pieces.append(" ")
+        pieces.append(fmt(note))
+    return "".join(pieces)
+
+
+def display_location(location, en):
+    lines = re.fullmatch(r"L(\d+)-(\d+)", location)
+    if lines:
+        start, end = lines.groups()
+        if start == end:
+            return f"Line {start}" if en else f"原文第 {start} 行"
+        return f"Lines {start}–{end}" if en else f"原文第 {start}–{end} 行"
+    block = re.fullmatch(r"p(\d+):B(\d+)", location)
+    if block:
+        page, n = block.groups()
+        return f"Page {page}, block {n}" if en else f"原文第 {page} 页 · 第 {n} 块"
+    return ("Source · " if en else "原文 · ") + location
 
 
 def issue_label(reason, en):
@@ -71,7 +116,7 @@ def table(headings, rows):
     return f'<div class="scroll"><table><thead><tr>{heading}</tr></thead><tbody>{body}</tbody></table></div>'
 
 
-def render(cards, tables, source_by_id, labels, en=False):
+def render(cards, tables, source_by_id, labels=None, en=False):
     def label(zh, english):
         return english if en else zh
 
@@ -110,7 +155,7 @@ def render(cards, tables, source_by_id, labels, en=False):
         if paired:
             parts.append(
                 f"<{section}>"
-                + label("发现与适用条件", "Findings and scope")
+                + label("结果对照", "Results by section")
                 + f"</{section}>"
             )
             rows = []
@@ -128,8 +173,8 @@ def render(cards, tables, source_by_id, labels, en=False):
             parts.append(
                 table(
                     [
-                        label("原章节", "Section"),
-                        label("发现", "Finding"),
+                        label("章节", "Section"),
+                        label("结果", "Finding"),
                         label("适用条件", "Scope"),
                     ],
                     rows,
@@ -160,26 +205,22 @@ def render(cards, tables, source_by_id, labels, en=False):
             heading = " › ".join(chapter["path"])
             if heading:
                 parts.append(f"<{section}>{escape(heading)}</{section}>")
-            for anchor in chapter["anchors"]:
-                n = items[anchor]
-                raw = source_by_id[n["id"]]["text"]
-                start, end = n["start"], n["end"]
-                if raw[start:end] != n["quote"]:
-                    raise ValueError("Source quote mismatch: " + n["location"])
-                parts.append(
-                    f'<p class="role-line" id="{escape(anchor)}"><b class="role">{escape(labels[n["role"]])}</b>　{escape(compact(n["quote"]))}</p>'
-                )
-                for key in n.get("conditions", []):
-                    parts.append(link("#" + key, label("适用条件", "Scope")))
+            for group in passage_groups(chapter["anchors"], items, source_by_id):
+                first, last = group[0], group[-1]
+                raw = source_by_id[first["id"]]["text"]
+
+                def marked_note(note):
+                    return f'<span id="{escape(note["anchor"])}" class="passage">{escape(compact(note["quote"]))}</span>'
+
+                parts.append("<p>" + join_passage(group, raw, marked_note) + "</p>")
                 original = card["original_href"] + (
-                    f"#page={n['page']}" if n.get("page") else ""
+                    f"#page={first['page']}" if first.get("page") else ""
                 )
+                start, end = first["start"], last["end"]
                 parts.extend(
                     [
                         "<details><summary>"
-                        + label("原文", "Source")
-                        + " · "
-                        + escape(n["location"])
+                        + escape(display_location(first["location"], en))
                         + "</summary>",
                         link(original, label("打开原文", "Open original")),
                         "<blockquote>"
