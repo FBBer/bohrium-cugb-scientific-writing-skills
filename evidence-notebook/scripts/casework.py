@@ -314,7 +314,7 @@ def spreadsheet_parts(path, issues, source):
                     row.clear()
 
 
-def prepare(input_dir, work):
+def prepare(input_dir, work, *, reading_layout=False):
     root = Path(input_dir).resolve()
     work = Path(work).resolve()
     if not root.is_dir() or work == root:
@@ -364,14 +364,31 @@ def prepare(input_dir, work):
                 else:
                     records.extend(delimited_records(path, rel, append))
             elif ext == ".pdf":
+                if reading_layout:
+                    from paper_structure import pdf_blocks
+                    pages = pdf_blocks(path)
+                    if pages is not None:
+                        for n, blocks in pages:
+                            if not blocks:
+                                issues.append({"file":rel,"location":f"p{n}","reason":"no text layer; render/OCR page"})
+                            for block in blocks:
+                                append(rel, block["location"], block["text"])
+                                rows[-1].update({k:block[k] for k in ("bbox","page","story","heading_level") if k in block})
+                        continue
                 for n, text in pdf_parts(path):
                     if not text.strip():
                         issues.append({"file":rel,"location":f"p{n}", "reason":"no text layer; render/OCR page"})
                     for loc, para in paragraphs(text):
                         append(rel, f"p{n}:{loc}", para)
             elif ext in {".docx", ".pptx"}:
+                styles = {}
+                if reading_layout and ext == ".docx":
+                    from paper_structure import word_styles
+                    styles = word_styles(path)
                 for loc, para in office_parts(path):
                     append(rel, loc, para)
+                    if loc in styles:
+                        rows[-1].update(styles[loc])
             elif ext == ".xlsx":
                 for loc, value in spreadsheet_parts(path, issues, rel):
                     append(rel, loc, value)

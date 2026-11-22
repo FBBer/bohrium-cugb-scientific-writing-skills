@@ -5,15 +5,28 @@ description: 沿论文真实结构建立含研究条件、发现和局限的笔�
 
 # 结构化阅读笔记
 
-## 从一组论文直接做笔记
+## 从论文到章节笔记
 
-把论文放进一个目录，运行下面的命令。可读取有文字层的 PDF、Word、Markdown 和纯文本。示例包含两篇自拟的中英文短文。
+先读题目说明，确定要整理的论文和重点。把材料目录与输出目录分开。通读时用论文原有小节，比较时用跨论文矩阵；每条发现保留所用条件、原文位置和对应版本。Markdown、分节纯文本、Word 标题和有文字层的 PDF 可以直接处理。
 
 ```sh
-python3 scripts/notebook.py examples/papers reading-notes --focus 漂移 --focus drift
+S=/skills/weekly-skill
+python3 "$S/scripts/notebook.py" /input /app/work/notebook --paper 实际论文.pdf
 ```
 
-先读 `reading-notes/notes.md`，再按编号找到原文。`study-matrix.tsv` 把各篇论文的同类证据并排列在一张表中。`comparison.tsv` 按论文、研究问题、方法、发现、作者解释和局限列出原句；`reading-cards.json` 另存位置和字符范围。只有正文中出现的内容才进入笔记。缺少哪一类原文记在 `uncovered`，原文中的参考文献列表不参与摘录。多材料目录可重复添加 `--paper 相对路径`。`--language en` 使用英文栏目；`--per-role 4` 可增加各栏摘录。输出放在材料目录之外。手写解释或跨论文综合时，用下方的 compose 工作流。
+打开 notebook.html，按原章节阅读，点段落位置看带高亮的原句。PDF 可从该处打开原页。notes.md 用于继续写作，study-matrix.tsv 可导入表格，reading-cards.json 和 comparison.tsv 保留字段、引句及位置。要按语种检索原文，可重复写 --focus。--per-role 限制跨论文矩阵每栏的条数，独立小节仍保留代表性内容。
+
+同一读数可能出现在不同地点。查找时带上章节或条件，保留不同小节的重复观察。给定明确的随文表格，可用 --table '论文文件=表格文件' 连接 CSV 或 TSV。看数值时要带上原行、列头与单位，重复观测按测次区分。示例使用自拟的水尺记录。
+
+```sh
+python3 scripts/notebook.py examples/river river-notes --table '河道观测.md=观测表.tsv'
+python3 scripts/recall.py river-notes search '0.7' --section 上游浅滩 --role finding
+python3 scripts/recall.py river-notes table 观测表.tsv --where 测站=深槽 --where 水情=退水 --where 测次=2 --field '偏差 (cm)'
+```
+
+把找到的结果写进题目要求的字段。recall 的 --originals 参数可同时核对原文件版本。图像扫描页、文本层损坏、公式或原作者未交代的因果关系，需要回到相应原页阅读。只有能指回原文的内容才作为论文结论。
+
+## 撰写自己的解释与跨论文比较
 
 沿论文实际章节写出研究问题、数据、方法、结果及限制。每个关键数值带研究对象、条件和原文位置。将作者的解释、读者的推断和原文观察分别标出。
 

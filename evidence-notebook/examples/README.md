@@ -34,12 +34,20 @@ output/notes.md、paper-cards.json 和主题索引。论文事实与读者解释
 python3 scripts/compose.py notes my-example/work/sources.json my-example/work/notes-plan.json my-example/output --word --preview
 ```
 
-## 从一组论文直接做笔记
+## 同一个 0.7 cm，分别说明什么
 
-把论文放进一个目录，运行下面的命令。可读取有文字层的 PDF、Word、Markdown 和纯文本。示例包含两篇自拟的中英文短文。
+```sh
+python3 scripts/notebook.py examples/river river-notes --table '河道观测.md=观测表.tsv'
+python3 scripts/recall.py river-notes search '0.7' --section 上游浅滩 --role finding --originals examples/river
+python3 scripts/recall.py river-notes table 观测表.tsv --where 测站=深槽 --where 水情=退水 --where 测次=2 --field '偏差 (cm)'
+```
+
+打开 river-notes/notebook.html。上游与下游各有一条 0.7 cm，上游只观测涨水，下游只观测退水。第一条查询只取上游小节及其条件；第二条查询会返回原表第 5 行第 4 列的 0.0。删掉测次条件会看到两次深槽读数。空单元格在查询中保留为空。
+
+## 比较多篇论文
 
 ```sh
 python3 scripts/notebook.py examples/papers reading-notes --focus 漂移 --focus drift
 ```
 
-先读 `reading-notes/notes.md`，再按编号找到原文。`study-matrix.tsv` 把各篇论文的同类证据并排列在一张表中。`comparison.tsv` 按论文、研究问题、方法、发现、作者解释和局限列出原句；`reading-cards.json` 另存位置和字符范围。只有正文中出现的内容才进入笔记。缺少哪一类原文记在 `uncovered`，原文中的参考文献列表不参与摘录。多材料目录可重复添加 `--paper 相对路径`。`--language en` 使用英文栏目；`--per-role 4` 可增加各栏摘录。输出放在材料目录之外。手写解释或跨论文综合时，用下方的 compose 工作流。
+reading-notes/study-matrix.tsv 按研究问题、方法、发现、解释和局限并排组织论文；comparison.tsv 保留原文段落与字符区间。阅读区使用 --language en 可切换英文栏目。原文引句保持原语种。

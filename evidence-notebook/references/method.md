@@ -27,3 +27,7 @@ Word 原生分式按分子和分母线性表达，上下标保留。附注使用
 需要登记同一行的读数时，可在该句添加 observations。例如 {"source":"runs.tsv","where":{"sample":"Chalk","condition":"wet"},"field":"Pressure (kPa)","value_id":"实际读数的 id"} 是数组中的一项。按数据表的真实字段填写，并在 evidence 中一并列出筛选字段和读数。若同一条件有多次测量，另加观测编号区分。
 
 引用分隔表中的数值格时，正文明确点名的组别须与同一行的样品或条件一致。参数条目中的 scope 采用相同的对应方式。多组比较需分别引用实际测量的各行。
+
+双栏 PDF 首选 PyMuPDF，按栏和跨栏区块整理。没有 PyMuPDF 时，可用 Poppler 的 pdftotext 或 pypdf 提取文本。Word 标题从文档的样式与层级读取。扫描页没有文字层时保留页号，须另做 OCR 或人工核对。索引中的字符位置使用 Unicode 码点，右端不含；PDF 的页为物理页码，B 为页内源区块。近邻条件只在同一小节内绑定；复杂叙述、图表和远距离限定需要沿原文或作者计划核对。CSV/TSV 表格需原始列名唯一，用多个筛选字段仍有多行时保留全部候选。
+
+普通文本、Word 和表格使用 Python 3.9 或更新版本的标准库。PDF 分栏实测使用 PyMuPDF；可用 python3 -m pip install PyMuPDF 安装。阅读页离线可用，和原材料保持相对目录关系即可从笔记打开原件。
