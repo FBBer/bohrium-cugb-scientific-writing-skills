@@ -55,19 +55,29 @@ def import_records(path):
 
 def groups(records):
     merged=[];mapping={};bydoi={};byfinger={};decisions=[];issues=[]
+    def fingerprint(row):
+        return (norm(row.get("title")), str(year(row) or ""), author_sig(row), row.get("type", ""))
+    editions = collections.defaultdict(set)
+    for row in records:
+        identifier = doi(row.get("DOI") or row.get("doi"))
+        if re.fullmatch(r"10\.\d{4,9}/\S+", identifier):
+            editions[fingerprint(row)].add(identifier)
     for i,orig in enumerate(records,1):
         r=dict(orig); rid=str(r.get("id",i))
         if rid in mapping:raise ValueError("duplicate input identifier "+rid+"; disambiguate first")
         ids=doi(r.get("DOI",r.get("doi"))); d=ids if re.fullmatch(r"10\.\d{4,9}/\S+",ids) else ""
         if ids and not d:issues.append({"id":rid,"issue":"invalid DOI syntax","value":ids})
-        f=(norm(r.get("title")),str(year(r) or ""),author_sig(r),r.get("type",""))
+        f=fingerprint(r)
         candidates=bydoi.get(d,[]) if d else []
         compatible=[j for j in candidates if not f[0] or not norm(merged[j].get("title")) or norm(merged[j].get("title"))==f[0]]
         idx=compatible[0] if len(compatible)==1 else None;reason="same normalized DOI"
         if candidates and idx is None:
             issues.append({"id":rid,"related_ids":[rid]+[str(merged[j].get("id",j+1)) for j in candidates],
                            "issue":"same DOI, conflicting identity; retained separate pending source verification","variants":[merged[j].get("title") for j in candidates]+[r.get("title")]})
-        if idx is None and f[0] and f[1] and f[2] and f[3] and f in byfinger:
+        if idx is None and all(f) and not d and len(editions[f]) > 1:
+            issues.append({"id":rid, "issue":"multiple editions share this metadata; DOI missing",
+                           "candidate_dois":sorted(editions[f])})
+        if idx is None and all(f) and f in byfinger and len(editions[f]) <= 1:
             previous=byfinger[f];prev=doi(merged[previous].get("DOI"))
             if d and prev and d!=prev:
                 issues.append({"id":rid,"related_ids":[rid,str(merged[previous].get("id",previous+1))],
@@ -84,6 +94,12 @@ def groups(records):
         if d:
             if idx not in bydoi.setdefault(d,[]):bydoi[d].append(idx)
             merged[idx]["DOI"]=d
+        if all(f) and len(editions[f]) > 1 and d and f in byfinger:
+            prior = merged[byfinger[f]]
+            prior_doi = doi(prior.get("DOI") or prior.get("doi"))
+            if prior_doi and prior_doi != d:
+                issues.append({"id":rid,"related_ids":[rid,str(prior.get("id"))],
+                               "issue":"similar metadata with distinct DOIs; retain versions"})
         byfinger[f]=idx;mapping[rid]=idx
     return merged,mapping,decisions,issues
 

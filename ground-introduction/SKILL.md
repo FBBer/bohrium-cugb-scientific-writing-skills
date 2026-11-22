@@ -5,6 +5,14 @@ description: 用限定来源组织研究背景、比较既有工作、推导有�
 
 # 引言与相关工作写作
 
+## 同一段中逐句核对引文
+
+一段里有引文的 4 cm 观测可以入稿，邻句缺少来源时单列出来。原文只写遮阴与降温相关，不能据此写成遮阴导致降温。introduction.md 保留可入稿文字，claim-sources.tsv 列出每句的出处。
+
+```sh
+python3 scripts/manuscript.py examples/water-level/papers examples/water-level/draft.md introduction-out --own our.txt --language en
+```
+
 ## 从普通文稿整理引文和贡献
 
 先根据原文写四段，分别交代背景、同一问题下的既有做法、这些研究留下的具体缺口及本文贡献。每行写一个或几个有关联的论断，在相应从句末放 Markdown 脚注 `[^key]`。文末的脚注定义给出 `材料相对路径 | 原句`。同一句在文献中出现多次时，在路径后加 `#位置`，位置取自原文索引。用 `--own` 指明本文的记录，其余材料作为参考文献。下面的短文为自拟示例。

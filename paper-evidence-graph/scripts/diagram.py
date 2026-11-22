@@ -65,8 +65,19 @@ def export_print(svg, root, fitz):
 
 def render(graph,answers,out):
     nodes={n["id"]:n for n in graph["nodes"]};edges={e["id"]:e for e in graph["edges"]}
-    groups=[(i,q["question"],[edges[x] for x in q["edges"]]) for i,q in enumerate(answers,1) if q["edges"]]
-    if not groups and edges:
+    groups = []
+    for i, answer in enumerate(answers, 1):
+        if not answer["edges"]:
+            continue
+        selected = {}
+        for path in answer.get("paths", []):
+            for step in path["steps"]:
+                quotes = selected.setdefault(step["edge"], [])
+                quotes.extend(ref for ref in step["evidence"] if ref not in quotes)
+        rows = [{**edges[key], "evidence":selected.get(key, edges[key]["evidence"])}
+                for key in answer["edges"]]
+        groups.append((i, answer["question"], rows))
+    if not answers and edges:
         caption="有原文依据的关系" if any(has_chinese(n["label"]) for n in nodes.values()) else "Supported relations"
         groups=[(1,caption,list(edges.values()))]
     files=[];issues=[]

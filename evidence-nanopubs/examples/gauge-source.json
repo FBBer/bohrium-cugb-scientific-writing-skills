@@ -1,0 +1,10 @@
+{
+  "sources": [
+    {
+      "id": "S1",
+      "source": "survey.md",
+      "location": "L1",
+      "text": "At the north gauge, the offset was 0.7 cm."
+    }
+  ]
+}

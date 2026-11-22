@@ -5,21 +5,26 @@ description: 将有出处的科研结论拆为可单独验证的断言，生成�
 
 # Nanopublication
 
+## 用观测原句发布断言
+
+断言里的 0.7 cm 可回到原句。改写为 7 mm 仍指同一读数，若写成 7 cm，工具会将它留在待核对记录里。直接观测用原文数值和单位核对，推断另记所用依据。
+
+```sh
+python3 scripts/nanopubs.py examples/gauge-source.json examples/gauge-claim.json observations
+```
+
 以真实结论段、表格或图注为单位定位。每条断言只表达一种关系，用独立的主体、关系、对象、极性、样本与范围描述它。并列结果可拆分，共用证据应保留同一出处；一个不能单独核验的因果链不得拆成较强的断言。
 
-## 从本次案例开始
+## 材料与出处
 
-读取 /input/case.json、同目录 task.md 和列出的原始附件。若存在 environment/resources.yaml，按其记录使用当前镜像的工具。在工作目录记下输出字段、类型、语言、文件名和原材料位置。用实际材料内容判断领域。此包不依赖其他参赛目录、网络、密钥或个人绝对路径。
+从 `/input/case.json` 和 `task.md` 确定交付内容及格式。用下列命令给附件建立索引，按文件名、页码或行号找原文。
 
 ```sh
 S=/skills/weekly-skill
-mkdir -p /app/work /app/output
 python3 "$S/scripts/casework.py" index --input /input --work /app/work
 ```
 
-sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
-
-## 执行方法
+## 处理实际材料
 
 claims.json 含 claims 数组，单项字段为 id、subject、predicate、object、statement、scope、polarity（positive/negative/uncertain）、evidence_type（direct/inference/reported-by-others）以及 evidence=[{"id":"S","quote":"最小充分原文"}]。推断还需 reason，保留替代解释。若材料给出出处，papers 按索引中 source 的完整值建键，记录 title、identifier、creator、date、hasVersion。publication 仅填写实际知道的本次产物作者、时间或版本，论文作者属于论文来源。
 
@@ -35,7 +40,7 @@ python3 "$S/scripts/nanopubs.py" /app/work/sources.json /app/work/claims.json /a
 
 重新解析 TriG（可用 rdflib.Dataset().parse(path, format="trig")），每条断言恰有一个 head 指向其三部分，来源图指回 assertion，本次出版图以 nanopub 为主语。逐句比对引文能否支持关系、方向与范围，检查去重和缺失元数据。按契约交付原子断言、图文件和不确定记录。
 
-把可编辑成果写入 /app/output。正文使用适合目标读者的科研表达，直接给出译文、论证、参数或结论。每个结果沿用原 case_id 和 output_contract 的字段、类型与层级。输出文件名遵循 task.md。来源差异、缺项的具体原因和运行状态写入契约指定字段或单独的审计文件。Office 文档和图形按要求附可编辑源与实物渲染。
+成稿放在 /app/output，沿用 case.json 中的 case_id 和 output_contract，按 task.md 命名。原文出处及待核对事项写在相应字段。
 
 ```sh
 python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
@@ -43,9 +48,9 @@ python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/out
 
 ## 独立运行环境
 
-生成 TriG 使用 Python 标准库。在独立环境可用 python3 -m pip install rdflib 安装独立 RDF 解析器，本地验证版本为 7.6.0。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+生成 TriG 使用 Python 标准库。在独立环境可用 python3 -m pip install rdflib 安装独立 RDF 解析器，本地验证版本为 7.6.0。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。依赖版本见示例说明。
 
-## 可复用的最小示例
+## 示例
 
 从本目录运行 `python3 examples/demo.py /tmp/evidence-nanopubs-example`。示例使用自写的小样本，实际运行结果保存在指定目录，输入和预期现象见 [示例说明](examples/README.md)。发行版本 1.0，运行环境为 Python 3.9 或以上。可在作品仓库相应目录的 Issues 中附匿名化最小复现、实际输出和依赖版本反馈问题。
 

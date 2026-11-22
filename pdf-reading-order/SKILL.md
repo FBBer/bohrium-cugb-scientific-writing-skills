@@ -5,6 +5,16 @@ description: 从真实论文 PDF 恢复阅读顺序、正文、表格、公式�
 
 # 文献文档解析
 
+## 分清表里的读数、上限和空白
+
+仪器表把单位另起一行。上游的 1.2 ± 0.3 cm 分成读数和不确定度两列，中游的 < 0.2 cm 保留为严格上限。中游的传播时间留空，表注可从相应单元格回看。
+
+```sh
+python3 examples/gauge_table.py field/gauges.pdf
+python3 scripts/parse_pdf.py field/gauges.pdf field/layout.json
+python3 scripts/open_tables.py field/layout.json --row Midstream --column Offset
+```
+
 ## 取出论文表格
 
 运行 `parse_pdf.py` 后，同目录的 `layout.tables.tsv` 可用表格软件打开。每格保留物理页、行名、列名、原始数值、页内坐标及检测到的脚注。带表题的无框数值表按字形位置和行列对齐恢复；空白格保留空值。没有足够行、标题或列间距时，保留原页文字，避免把两栏正文误认成表。要核对某个数值，打开原页视图，点选相应的表格行列。也可按行名、列名直接查询，得到数值、物理页、原页位置和脚注。若有多个同名读数，指定 `--page` 或 `--table`。下面是自拟的仪器示例。

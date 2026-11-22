@@ -5,6 +5,14 @@ description: 对科研材料制作逐段双语译稿，锁定术语，复核数�
 
 # 文献翻译
 
+## 译出测量范围
+
+“At least 3 cm”可译为“至少 3 cm”或“≥ 3 cm”。若译成“> 3 cm”，数值 3 没变，等号处的含义已经变了。核对结果写在 audit.json，逐段译稿在 bilingual.md。
+
+```sh
+python3 scripts/prose.py translate examples/crest-source.json examples/crest-draft.json translation --strict
+```
+
 按原文顺序交付指定范围内的双语对照。每段保留段号，图注、表头、公式和引用编号沿用原稿。译文主动核对否定、适用范围、比较方向、数值和单位；同一术语采用同一译法，语义不同的同名术语分列。
 
 读取本次材料、任务说明和指定交付格式。短文或已有稿件可以直接编辑。长文、多附件或数字密集时，从文件名、页、段、表格单元格建立证据索引。Word 表格保留表号、行号和列号；带单位的值要同时核对同表列头。长文可先按段建立对照，再核对遗漏、原文变动和术语。具体调用见[处理方法](references/method.md)。

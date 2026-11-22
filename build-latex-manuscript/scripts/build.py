@@ -28,12 +28,47 @@ def invoke(argv,cwd,records,env):
     records.append({"argv":argv,"exit":rc,"tail":output.splitlines()[-20:]});return rc,output
 
 
-def build(project,main,out,engine=None):
+def compilation_directory(source, main, requested):
+    """Decide between project-relative and entry-relative files using the manuscript's own inputs."""
+    root = Path(".")
+    nested = main.parent
+    if requested is not None:
+        directory = (source / requested).resolve()
+        if not directory.is_dir() or not directory.is_relative_to(source):
+            raise ValueError("the working directory must exist inside the editable source")
+        return directory.relative_to(source)
+    if nested == root:
+        return root
+    text = re.sub(r"(?<!\\)%[^\n]*", "", (source/main).read_text(encoding="utf-8", errors="replace"))
+    references = re.findall(r"\\(?:input|include|subfile)\s*\{([^{}\\#]+)\}", text)
+    references = [Path(x.strip()) for x in references if x.strip()]
+    by_base = {}
+    for base in (nested,root):
+        found = {}
+        for name in references:
+            options = (name,) if name.suffix else (name,name.with_suffix(".tex"))
+            match = next((source/base/x for x in options if (source/base/x).is_file()),None)
+            if match is not None:
+                found[name] = match.resolve()
+        by_base[base] = found
+    local, outer = by_base[nested], by_base[root]
+    if set(local) > set(outer):
+        return nested
+    if set(outer) > set(local):
+        return root
+    if local != outer:
+        raise ValueError("ambiguous TeX working directory; use --workdir to choose the intended inputs")
+    return nested
+
+
+def build(project,main,out,engine=None,workdir=None):
     project=project.resolve();out=out.resolve();rel=Path(main)
     if rel.is_absolute() or ".." in rel.parts or not (project/rel).is_file():raise ValueError("main must be a file inside the source project")
     if project==out or project in out.parents:raise ValueError("output directory must be outside the source tree")
     out.mkdir(parents=True,exist_ok=True)
     source=out/"source";records=[];issues=[];pdf=out/"manuscript.pdf"
+    if (source.exists() or pdf.exists()) and not (out/".build-output").is_file():
+        raise ValueError("use a fresh output directory")
     if pdf.exists():pdf.unlink()
     if source.exists():
         # Only replace files in the generated source copy. Avoid recursive removal of an unrelated directory.
@@ -49,23 +84,32 @@ def build(project,main,out,engine=None):
         originhash[relative.as_posix()]=hashlib.sha256(path.read_bytes()).hexdigest()
     tool=engine or engine_for(source/rel);env=os.environ.copy()
     if tool not in {"pdflatex","xelatex","lualatex"}:raise ValueError("unknown engine")
+    try:
+        directory = compilation_directory(source, rel, workdir)
+    except ValueError as exc:
+        report = {"status":"partial","main":rel.as_posix(),"engine":tool,"commands":[],"pdf":None,
+                  "source_sha256":originhash,"converged":False,"diagnostics":[str(exc)]}
+        atomic_text(out/"compile.log",str(exc)+"\n")
+        write(out/"build.json",report)
+        return report
     version=shutil.which(tool)
     if version:
         v=subprocess.run([tool,"--version"],capture_output=True,text=True).stdout.splitlines();version=v[0] if v else tool
     stable=False;status="partial";stem=rel.stem
     with tempfile.TemporaryDirectory() as tmp:
         stage=Path(tmp)/"project";shutil.copytree(source,stage)
-        cwd=stage
+        cwd=stage/directory
+        entry=os.path.relpath(stage/rel,cwd)
         env.update({"openout_any":"p","openin_any":"p","shell_escape":"f"})
         logfile=cwd/(stem+".log");built=cwd/(stem+".pdf")
         if shutil.which("latexmk") and shutil.which(tool):
             flag={"pdflatex":"-pdf","xelatex":"-xelatex","lualatex":"-lualatex"}[tool]
-            cmds=["latexmk","-norc",flag,"-no-shell-escape","-interaction=nonstopmode","-halt-on-error","-file-line-error",rel.as_posix()]
+            cmds=["latexmk","-norc",flag,"-no-shell-escape","-interaction=nonstopmode","-halt-on-error","-file-line-error",entry]
             rc,output=invoke(cmds,cwd,records,env);stable=(rc==0)
         elif shutil.which(tool):
             before=None;bibsig=None;rc=1
             for iteration in range(6):
-                rc,output=invoke([tool,"-no-shell-escape","-interaction=nonstopmode","-halt-on-error","-file-line-error",rel.as_posix()],cwd,records,env)
+                rc,output=invoke([tool,"-no-shell-escape","-interaction=nonstopmode","-halt-on-error","-file-line-error",entry],cwd,records,env)
                 if rc:break
                 aux=cwd/(stem+".aux");bcf=cwd/(stem+".bcf")
                 auxtext=aux.read_text(errors="replace") if aux.exists() else ""
@@ -93,9 +137,10 @@ def build(project,main,out,engine=None):
             shutil.copy2(built,pdf)
             if not issues and stable:status="success"
         else:issues.append("no successful fresh PDF")
-    report={"status":status,"engine":tool,"version":version,"main":rel.as_posix(),"source_sha256":originhash,"converged":stable,"commands":records,"diagnostics":issues,"pdf":pdf.name if pdf.is_file() else None}
+    report={"status":status,"engine":tool,"version":version,"main":rel.as_posix(),"workdir":directory.as_posix(),"source_sha256":originhash,"converged":stable,"commands":records,"diagnostics":issues,"pdf":pdf.name if pdf.is_file() else None}
     write(out/"build.json",report);return report
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("project",type=Path);p.add_argument("main");p.add_argument("out",type=Path);p.add_argument("--engine",choices=["pdflatex","lualatex","xelatex"])
-    a=p.parse_args();r=build(a.project,a.main,a.out,a.engine);print(r["status"],r["diagnostics"][:6]);raise SystemExit(r["status"]!="success")
+    p.add_argument("--workdir",type=Path,help="compile in this directory within the project")
+    a=p.parse_args();r=build(a.project,a.main,a.out,a.engine,a.workdir);print(r["status"],r["diagnostics"][:6]);raise SystemExit(r["status"]!="success")

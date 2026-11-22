@@ -10,9 +10,13 @@ CAPTION = re.compile(
     re.I,
 )
 NOTE = re.compile(r"^\s*(?:notes?\s*[:.]|注[：:]|[*†‡]\s*\w|source\s*:)", re.I)
+NUMBER = r"[+−–-]?(?:\d+(?:[.,]\d+)*|\.\d+)(?:[eE][+−-]?\d+)?"
 VALUE = re.compile(
-    r"^(?:[<>≤≥~≈]?\s*[+−–-]?(?:\d+(?:[.,]\d+)*|\.\d+)|[—–-]$|n/?a$|nd$)", re.I
+    rf"^(?:[<>≤≥~≈]?\s*{NUMBER}(?:\s*(?:±|\+/-|–|to)\s*{NUMBER})?"
+    rf"(?:\s*\(\s*{NUMBER}(?:\s*[,–-]\s*{NUMBER})?\s*\))?"
+    r"(?:\s*(?:%|‰|°C|mm|cm|km|ms|s|mV|V|Pa|kPa|Hz))?[*†‡]*|[—–-]|n/?a|nd)$", re.I
 )
+UNIT_CELL = re.compile(r"^[\[(][\w°%‰µμ·/⁻⁺^ .−-]{1,24}[\])]$")
 
 
 def bounds(parts):
@@ -74,10 +78,20 @@ def borderless(words, known):
             continue
         if any(not re.search(r"[^\W\d_]", text) for text, _ in header):
             continue
+        first_body = pos + 2
+        next_y, next_cells = rows[first_body]
+        if next_y - hy <= 1.75 * height and all(UNIT_CELL.fullmatch(t) for t, _ in next_cells):
+            header_cuts = [(left[1][2] + right[1][0]) / 2 for left, right in zip(header, header[1:])]
+            units = project(next_cells, header_cuts)
+            if units is not None:
+                header = [(name + " " + unit, bounds([box, ub])) if ub else (name, box)
+                          for (name, box), (unit, ub) in zip(header, units)]
+                first_body += 1
+                hy = next_y
         body = []
         notes = []
         previous_y = hy
-        for y, cells in rows[pos + 2 :]:
+        for y, cells in rows[first_body:]:
             printed = " ".join(c[0] for c in cells)
             if y - previous_y > max(27, 2.15 * height) or CAPTION.match(printed):
                 break
@@ -124,15 +138,29 @@ def borderless(words, known):
             # The library can detect an open table while omitting its caption and notes.
             # Add them only when the printed values agree column for column.
             for table in overlaps:
-                observed = [
-                    [str(value or "").strip() for value in row]
-                    for row in table.get("rows", [])
-                ]
+                observed = [[" ".join(str(value or "").split()) for value in row]
+                            for row in table.get("rows", [])]
                 printed = [[text.strip() for text, _ in row] for row in grid]
                 if observed == printed:
                     table["caption"] = caption_text
                     table["footnotes"] = notes
                     table["text_cells"] = boxes
+                elif observed and observed[0] == printed[0] and not table.get("external_header"):
+                    # Some PDF engines return a unit line twice and attach the footnote as a data row.
+                    # Change the grid only if every remaining cell agrees with the physical text grid.
+                    data = []
+                    for row in observed[1:]:
+                        filled = [v for v in row if v]
+                        if filled and (all(UNIT_CELL.fullmatch(v) for v in filled)
+                                       or (len(filled) == 1 and any(filled[0] == n["text"] for n in notes))):
+                            continue
+                        data.append(row)
+                    if data == printed[1:]:
+                        original = dict(table)
+                        table.clear()
+                        table.update(detected_grid=original, bbox=box, rows=printed, row_cells=boxes,
+                                     text_cells=boxes, cells=[b for row in boxes for b in row if b],
+                                     method="aligned text and PDF grid", caption=caption_text, footnotes=notes)
             continue
         tables.append(
             {
@@ -146,6 +174,26 @@ def borderless(words, known):
             }
         )
     return tables
+
+
+HEADING_UNIT = re.compile(r"\s*[\[(]([^()\[\]]+)[\])]\s*$")
+READING = re.compile(rf"(?P<operator><=|>=|[<>≤≥~≈])?\s*(?P<value>{NUMBER})"
+                     rf"(?:\s*(?:±|\+/-)\s*(?P<uncertainty>{NUMBER}))?\s*(?P<unit>%|‰|°C|mm|cm|km|ms|s|mV|V|Pa|kPa|Hz)?")
+
+
+def measurement(printed, heading):
+    raw = str(printed or "").strip()
+    header_unit = HEADING_UNIT.search(str(heading or ""))
+    result = {"kind": "blank" if not raw else "text", "value": None, "uncertainty": None,
+              "unit": header_unit[1] if header_unit else None}
+    match = READING.fullmatch(raw)
+    if match:
+        kinds = {"<": "upper_exclusive", ">": "lower_exclusive", "≤": "upper_inclusive",
+                 "<=": "upper_inclusive", "≥": "lower_inclusive", ">=": "lower_inclusive",
+                 "~": "approximate", "≈": "approximate"}
+        result.update(kind=kinds.get(match["operator"], "plus_minus" if match["uncertainty"] else "value"),
+                      value=match["value"], uncertainty=match["uncertainty"], unit=match["unit"] or result["unit"])
+    return result
 
 
 def table_tsv(pages):
@@ -162,6 +210,7 @@ def table_tsv(pages):
             "value",
             "bbox",
             "footnotes",
+            "measurement_kind", "measurement_value", "uncertainty", "unit",
         )
     )
     for page in pages:
@@ -183,6 +232,9 @@ def table_tsv(pages):
                     values[columns[0]] if columns and columns[0] < len(values) else ""
                 )
                 for col in columns:
+                    heading = headings[col] if col < len(headings) else ""
+                    printed = values[col] if col < len(values) else ""
+                    reading = measurement(printed, heading)
                     box = (
                         positions[r][col]
                         if r < len(positions) and col < len(positions[r])
@@ -199,6 +251,7 @@ def table_tsv(pages):
                             values[col] if col < len(values) else "",
                             ",".join(f"{v:.2f}" for v in box) if box else "",
                             foot,
+                            reading["kind"], reading["value"], reading["uncertainty"], reading["unit"],
                         )
                     )
     return out.getvalue()
@@ -215,9 +268,9 @@ def find_cell(layout, row_label, heading, page=None, table=None):
         p, t = int(item["page"]), int(item["table"])
         if (page is not None and p != page) or (table is not None and t != table):
             continue
-        if key(row_label) != key(item["row_label"]) or key(heading) != key(
-            item["heading"]
-        ):
+        if key(row_label) != key(item["row_label"]) or key(heading) not in {
+            key(item["heading"]), key(HEADING_UNIT.sub("", item["heading"]))
+        }:
             continue
         boxes = [float(x) for x in item["bbox"].split(",")] if item["bbox"] else None
         cells.append(
@@ -229,6 +282,7 @@ def find_cell(layout, row_label, heading, page=None, table=None):
                 "row_label": item["row_label"],
                 "heading": item["heading"],
                 "printed": item["value"],
+                "measurement": measurement(item["value"], item["heading"]),
                 "bbox": boxes,
                 "footnotes": item["footnotes"],
                 "anchor": f"p{p}:t{t}:r{item['row']}:c{item['column']}"

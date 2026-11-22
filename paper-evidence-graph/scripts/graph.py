@@ -165,6 +165,12 @@ def query_paths(graph, spec, refs):
     policy = spec.get("scope_policy", "any")
     if policy not in {"any", "same"}:
         raise ValueError("scope_policy must be any or same")
+    source_policy = spec.get("source_policy", "any")
+    if source_policy not in {"any", "same"}:
+        raise ValueError("source_policy must be any or same")
+    requested = spec.get("source_file")
+    if requested is not None and (not isinstance(requested, str) or not requested.strip()):
+        raise ValueError("source_file needs a source filename")
     adjacent = {"out": collections.defaultdict(list), "in": collections.defaultdict(list)}
     for edge in graph["edges"]:
         adjacent["out"][edge["source"]].append((edge["target"], edge))
@@ -194,6 +200,23 @@ def query_paths(graph, spec, refs):
         paths = extended
     if finish is not None:
         paths = [(ids,edges) for ids,edges in paths if ids[-1]==finish]
+    if source_policy == "same" or requested is not None:
+        anchors = graph.get("anchors", {})
+
+        def document(evidence):
+            return anchors.get(evidence["id"], {}).get("source")
+
+        supported = []
+        for ids, route in paths:
+            documents = [{document(ref) for ref in edge["evidence"]} - {None} for edge in route]
+            shared = set.intersection(*documents)
+            if requested is not None:
+                shared &= {requested}
+            if shared:
+                supported.append((ids, [{**edge, "evidence": [
+                    ref for ref in edge["evidence"] if document(ref) in shared
+                ]} for edge in route]))
+        paths = supported
     route_rows = []
     for ids, edges in paths:
         hops = []

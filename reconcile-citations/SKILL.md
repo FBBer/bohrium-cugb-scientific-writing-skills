@@ -5,6 +5,14 @@ description: 校验稿件引文与书目、保守去重、按首次出现重排�
 
 # 参考文献与引用管理
 
+## 区分同名的不同版本
+
+同名、同年、同一作者的两条记录若各有一个 DOI，会保留两版。第三条记录缺 DOI 时，两种可能都列出来，文内引用仍指向作者选的那条。示例书目和 DOI 为自拟记录。
+
+```sh
+python3 scripts/citations.py examples/gauge-versions.json examples/gauge-citations.md references-out
+```
+
 从原稿与原始文献库逐条对应引用。合并重复条目要有 DOI 或一致的书目信息，同名不同版分开。保留原稿中的公式、代码、引用页码、附录与未能确定的文献标记。
 
 材料较多时，运行 `python3 "$S/scripts/casework.py" index --input /input --work /app/work` 建立原文索引，`find` 可按词和文件查位置。下面使用示例文件名。

@@ -5,6 +5,14 @@ description: 抽取可溯源的实体及有向关系，保留有证据的别名�
 
 # 文献知识图谱
 
+## 追问一篇论文能支持哪条路径
+
+查询中的 source_policy 取 same 时，输出只留下每一步都有同一文献支持的路径。要核对某一篇，在问题 JSON 中填入 source_file。反向查询仍保留原文陈述的主语、关系和宾语。
+
+```sh
+python3 scripts/lookup.py examples/field-graph.json examples/one-paper.json --diagram field-figures
+```
+
 从实际研究问题着手建图。节点标明类型与文中定义，边保留原方向、条件和逐字引文。同名实体先区分义项，跨论文合并须有依据。
 
 先用 `python3 "$S/scripts/casework.py" index --input /input --work /app/work` 生成 sources.json。证据用实际 id 和原文 quote 对应。 以下路径中的材料名按本次输入替换。

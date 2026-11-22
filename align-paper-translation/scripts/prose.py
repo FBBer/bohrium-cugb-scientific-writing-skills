@@ -1,6 +1,7 @@
 """Verify aligned passages and emit a bilingual or revision manuscript with exact edit spans."""
 import argparse
 from collections import Counter
+from limits import limits, without_limits
 import difflib
 import re
 import unicodedata
@@ -49,6 +50,9 @@ def split_clauses(text):
 
 def linguistic_flags(old,new,gloss=None):
     review=[]
+    if limits(old) != limits(new):
+        review.append("numeric threshold or inclusive boundary changed")
+    old, new = without_limits(old), without_limits(new)
     for key,pattern in FLAGS.items():
         if bool(re.search(pattern,old,re.I))!=bool(re.search(pattern,new,re.I)): review.append(key)
     def directions(text):

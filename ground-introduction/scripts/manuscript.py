@@ -28,6 +28,39 @@ UNBOUNDED = re.compile(
     re.I,
 )
 PUNCT = re.compile(r"^[\s.,，。；;:：!?！？、)）”’]*$")
+SENTENCE_END = re.compile(r"[。！？!?]+|\.(?!\d)")
+ABBREVIATION = re.compile(r"(?i:\b(?:fig|eq|dr|no|vol|al|vs|e\.g|i\.e))$|\b[A-Z]$")
+CAUSAL = re.compile(r"\b(?:causes?|caused|leads? to|led to|results? in|resulted in)\b|导致|引起|造成", re.I)
+ASSOCIATION = re.compile(r"\b(?:associat\w*|correlat\w*)\b|相关|关联", re.I)
+NONCAUSAL = re.compile(r"\b(?:cannot|could not|does not|did not|cannot be used to) (?:establish|infer|prove|show) caus|不能(?:推断|证明|确定)因果", re.I)
+
+
+def draft_sentences(line):
+    """Keep notes with their sentence, whether the author placed them before or after the stop."""
+    if not line.strip() or line.lstrip().startswith("#"):
+        return [line]
+    start = 0
+    parts = []
+    for stop in SENTENCE_END.finditer(line):
+        if stop.start() < start:
+            continue
+        if stop[0] == "." and ABBREVIATION.search(line[:stop.start()]):
+            continue
+        end = stop.end()
+        while end < len(line) and line[end] in '”’")）':
+            end += 1
+        note = GROUP.match(line, end + len(line[end:]) - len(line[end:].lstrip()))
+        if note:
+            end = note.end()
+        rest = line[end:]
+        if rest and not (rest[0].isspace() or re.match(r"[\u3400-\u9fff]", rest)):
+            continue
+        parts.append(line[start:end].strip())
+        start = end
+    tail = line[start:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
 
 
 DIRECTION = re.compile(
@@ -120,7 +153,7 @@ def compile_draft(materials, draft, out, own, bibliography, language):
         if not match:
             if line.lstrip().startswith("[^") and "]: " in line:
                 raise ValueError(f"Invalid source definition on line {n}")
-            content.append((n, line))
+            content.extend((n, sentence) for sentence in draft_sentences(line))
             continue
         key, source, quote = match.groups()
         if key in declarations:
@@ -138,6 +171,7 @@ def compile_draft(materials, draft, out, own, bibliography, language):
     issues = []
     prose = []
     represented = set()
+    previous_prose_line = None
     for n, line in content:
         if not line.strip():
             prose.append("")
@@ -187,6 +221,11 @@ def compile_draft(materials, draft, out, own, bibliography, language):
                     "measurement absent from this clause’s sources: "
                     + ", ".join(values)
                 )
+            quotes = " ".join(r["quote"] for r in refs)
+            if (CAUSAL.search(clause) and not NONCAUSAL.search(clause)
+                    and (ASSOCIATION.search(quotes) or NONCAUSAL.search(quotes))
+                    and (not CAUSAL.search(quotes) or NONCAUSAL.search(quotes))):
+                reasons.append("the cited passage describes an association and does not establish this cause")
             observed = reported_directions(" ".join(r["quote"] for r in refs))
             asserted = reported_directions(clause)
             if (
@@ -241,7 +280,12 @@ def compile_draft(materials, draft, out, own, bibliography, language):
             else:
                 clause += citation
             rendered.append(clause)
-        prose.append(" ".join(rendered) + tail)
+        sentence = " ".join(rendered) + tail
+        if previous_prose_line == n:
+            prose[-1] += ("" if re.match(r"[\u3400-\u9fff]", sentence) else " ") + sentence
+        else:
+            prose.append(sentence)
+        previous_prose_line = n
         claims.extend(line_claims)
         represented.add(role)
     if numbers:

@@ -5,21 +5,26 @@ description: 把配置、代码、日志和论文转为可复核的方法实验�
 
 # 方法与实验章节写作
 
+## 按实验批次找参数
+
+日志里的 R1 先记 15 ms，后记 20 ms。两条记录在 within_run_conflicts 中并列，带原文件与行号。R2 的 25 ms 单独归入 R2。CSV 的种子和嵌套配置中的增益也保留各自的运行编号。
+
+```sh
+python3 scripts/settings.py examples/field-runs settings.json
+```
+
 列明材料来源、实验身份、运行时间与阶段。区分默认配置、提交的有效配置、一次实际运行的覆盖值，以及文章中汇总的设置。按 run_id、版本、数据划分和实验组对齐，多个实验不同取值通常不构成冲突。
 
-## 从本次案例开始
+## 材料与出处
 
-读取 /input/case.json、同目录 task.md 和列出的原始附件。若存在 environment/resources.yaml，按其记录使用当前镜像的工具。在工作目录记下输出字段、类型、语言、文件名和原材料位置。用实际材料内容判断领域。此包不依赖其他参赛目录、网络、密钥或个人绝对路径。
+从 `/input/case.json` 和 `task.md` 确定交付内容及格式。用下列命令给附件建立索引，按文件名、页码或行号找原文。
 
 ```sh
 S=/skills/weekly-skill
-mkdir -p /app/work /app/output
 python3 "$S/scripts/casework.py" index --input /input --work /app/work
 ```
 
-sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
-
-## 执行方法
+## 处理实际材料
 
 settings.py 对 JSON、YAML、CSV、配置和日志列出同名参数的候选差异，输出值、文件和位置。不同 run、不同作用域分开判定。对同一实验存在不一致时，查匹配实际运行的命令参数和日志，保留旧值、实际值和判据；材料不足时并列，标“需作者确认”。不将随机种子等同独立重复，不将训练规模推作测试样本数。
 
@@ -38,7 +43,7 @@ python3 "$S/scripts/compose.py" methods /app/work/sources.json /app/work/methods
 
 核对正文、参数表和运行记录中的数值、单位与归属，核查百分数的分母。对不需要或缺失的统计量注明该判断的依据。交付 methods.md、parameters.json、reproduction.json 与论断—证据表，按给定案例输出契约填入提交结果。
 
-把可编辑成果写入 /app/output。正文使用适合目标读者的科研表达，直接给出译文、论证、参数或结论。每个结果沿用原 case_id 和 output_contract 的字段、类型与层级。输出文件名遵循 task.md。来源差异、缺项的具体原因和运行状态写入契约指定字段或单独的审计文件。Office 文档和图形按要求附可编辑源与实物渲染。
+成稿放在 /app/output，沿用 case.json 中的 case_id 和 output_contract，按 task.md 命名。原文出处及待核对事项写在相应字段。
 
 ```sh
 python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
@@ -46,8 +51,8 @@ python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/out
 
 ## 独立运行环境
 
-结构化 YAML 解析可用 python3 -m pip install PyYAML，本地实测 6.0.3。纯文本键值、JSON 和 CSV 使用 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+结构化 YAML 解析可用 python3 -m pip install PyYAML，本地实测 6.0.3。纯文本键值、JSON 和 CSV 使用 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。依赖版本见示例说明。
 
-## 可复用的最小示例
+## 示例
 
 从本目录运行 `python3 examples/demo.py /tmp/reconstruct-methods-example`。示例使用自写的小样本，实际运行结果保存在指定目录，输入和预期现象见 [示例说明](examples/README.md)。发行版本 1.0，运行环境为 Python 3.9 或以上。可在作品仓库相应目录的 Issues 中附匿名化最小复现、实际输出和依赖版本反馈问题。

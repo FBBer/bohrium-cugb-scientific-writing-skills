@@ -100,6 +100,7 @@ def relation_terms(item, source_editions):
 
 
 def export(index,record,out):
+    from readings import readings
     sources={s["id"]:s for s in index["sources"]};blocks=[];accepted=[];issues=[];seen=set()
     meta=record.get("papers",{})
     for item in record["claims"]:
@@ -121,6 +122,11 @@ def export(index,record,out):
         qualifiers,err=modality(item,evidence)
         if err:errors.append(err)
         if not errors and item["evidence_type"]=="direct":
+            asserted = readings(item["statement"])
+            cited = {quantity for ref in evidence for quantity in readings(ref["quote"])}
+            missing = [printed for quantity, printed in asserted.items() if quantity not in cited]
+            if missing:
+                errors.append("measurement not in the cited passages: " + ", ".join(missing))
             statement = " ".join(item["statement"].casefold().split())
             incompatible = []
             for e in evidence:
