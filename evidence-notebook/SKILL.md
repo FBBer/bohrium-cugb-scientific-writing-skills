@@ -14,14 +14,14 @@ S=/skills/weekly-skill
 python3 "$S/scripts/notebook.py" /input /app/work/notebook --paper 实际论文.pdf
 ```
 
-打开 notebook.html，按原章节阅读，点段落位置看带高亮的原句。PDF 可从该处打开原页。notes.md 用于继续写作，study-matrix.tsv 可导入表格，reading-cards.json 和 comparison.tsv 保留字段、引句及位置。要按语种检索原文，可重复写 --focus。--per-role 限制跨论文矩阵每栏的条数，独立小节仍保留代表性内容。
+打开 notebook.html，按原章节阅读，点段落位置看带高亮的原句。PDF 可从该处打开原页。notes.md 用于继续写作，study-matrix.tsv 可导入表格，reading-cards.json 和 comparison.tsv 保留字段、引句及位置。要优先摘录含有指定关键词的原句，可以多次使用 --focus。--per-role 限制跨论文矩阵每栏的条数，独立小节仍保留代表性内容。
 
 同一读数可能出现在不同地点。查找时带上章节或条件，保留不同小节的重复观察。给定明确的随文表格，可用 --table '论文文件=表格文件' 连接 CSV 或 TSV。看数值时要带上原行、列头与单位，重复观测按测次区分。示例使用自拟的水尺记录。
 
 ```sh
-python3 scripts/notebook.py examples/river river-notes --table '河道观测.md=观测表.tsv'
+python3 scripts/notebook.py examples/river river-notes --table 'river-stage.md=readings.tsv'
 python3 scripts/recall.py river-notes search '0.7' --section 上游浅滩 --role finding
-python3 scripts/recall.py river-notes table 观测表.tsv --where 测站=深槽 --where 水情=退水 --where 测次=2 --field '偏差 (cm)'
+python3 scripts/recall.py river-notes table readings.tsv --where 测站=深槽 --where 水情=退水 --where 测次=2 --field '偏差 (cm)'
 ```
 
 把找到的结果写进题目要求的字段。recall 的 --originals 参数可同时核对原文件版本。图像扫描页、文本层损坏、公式或原作者未交代的因果关系，需要回到相应原页阅读。只有能指回原文的内容才作为论文结论。

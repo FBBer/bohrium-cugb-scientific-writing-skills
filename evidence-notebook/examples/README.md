@@ -37,9 +37,9 @@ python3 scripts/compose.py notes my-example/work/sources.json my-example/work/no
 ## 同一个 0.7 cm，分别说明什么
 
 ```sh
-python3 scripts/notebook.py examples/river river-notes --table '河道观测.md=观测表.tsv'
+python3 scripts/notebook.py examples/river river-notes --table 'river-stage.md=readings.tsv'
 python3 scripts/recall.py river-notes search '0.7' --section 上游浅滩 --role finding --originals examples/river
-python3 scripts/recall.py river-notes table 观测表.tsv --where 测站=深槽 --where 水情=退水 --where 测次=2 --field '偏差 (cm)'
+python3 scripts/recall.py river-notes table readings.tsv --where 测站=深槽 --where 水情=退水 --where 测次=2 --field '偏差 (cm)'
 ```
 
 打开 river-notes/notebook.html。上游与下游各有一条 0.7 cm，上游只观测涨水，下游只观测退水。第一条查询只取上游小节及其条件；第二条查询会返回原表第 5 行第 4 列的 0.0。删掉测次条件会看到两次深槽读数。空单元格在查询中保留为空。

@@ -3,7 +3,28 @@
 from html import escape
 import re
 
-CSS = """*{box-sizing:border-box}body{margin:0;background:white;color:#000;font:18px/1.65 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}main{max-width:1050px;margin:0 auto;padding:2.4rem clamp(1rem,4vw,3rem) 4rem}h1{font-size:clamp(1.9rem,4vw,2.8rem);line-height:1.16;margin:0 0 .7rem}h2{font-size:1.55rem;margin:1.8rem 0 .65rem}h3{font-size:1.18rem;margin:1.2rem 0 .2rem}a,summary{color:#000;text-underline-offset:.18em}a:hover,summary:hover{background:#e6b14d}nav{padding:.4rem 0 .9rem;border-bottom:2px solid #000;display:flex;flex-wrap:wrap;gap:.2rem 1.3rem}article+article{border-top:2px solid #000;margin-top:2rem;padding-top:1.3rem}p{margin:.3rem 0 .6rem}details{margin:.2rem 0 .8rem}summary{cursor:pointer}blockquote{border-left:3px solid #000;margin:.45rem 0;padding:.35rem .8rem;background:#fff}mark{background:#e7b04a;color:#000}table{border-collapse:collapse;max-width:100%;margin:.5rem 0}td,th{padding:.3rem .7rem;border-bottom:1px solid #000;text-align:left;vertical-align:top}th{border-bottom:2px solid #000}.scroll{overflow:auto}.role{font-weight:700}.meta{margin:.3rem 0;color:#000}"""
+CSS = """
+* {box-sizing:border-box}
+body {margin:0;background:#fff;color:#000;font:19px/1.65 -apple-system,'PingFang SC','Segoe UI',sans-serif}
+main {max-width:900px;margin:auto;padding:clamp(28px,5vw,66px) clamp(20px,5vw,50px)}
+h1 {font-size:clamp(32px,4.2vw,48px);line-height:1.16;margin:0 0 32px}
+h2 {font-size:clamp(25px,3vw,33px);margin:36px 0 12px}
+h3 {font-size:22px;margin:30px 0 10px}
+p {margin:8px 0 3px}
+nav {display:flex;flex-wrap:wrap;gap:6px 24px}
+article+article {margin-top:55px}
+a,summary {color:inherit;text-underline-offset:.18em}
+a:hover,summary:hover {background:#e9b85c}
+:focus-visible {outline:2px solid currentColor;outline-offset:3px}
+details {margin:2px 0 15px}
+summary {cursor:pointer;width:fit-content}
+blockquote {margin:8px 0 15px;overflow-wrap:anywhere}
+mark {background:#e9b85c;color:#000}
+.scroll {overflow-x:auto}
+table {border-collapse:collapse;margin:10px 0;font-variant-numeric:tabular-nums}
+td,th {text-align:left;vertical-align:top;padding:5px 24px 5px 0}
+.role {font-weight:650}
+"""
 
 
 def compact(x):
@@ -28,21 +49,24 @@ def render(cards, tables, source_by_id, labels, en=False):
         + "</style><main>"
     ]
     title = "Reading notes" if en else "阅读笔记"
-    doc.append(
-        f"<h1>{title}</h1><nav>"
-        + "".join(
-            f'<a href="#paper-{i}">{esc(c["title"])}</a>'
-            for i, c in enumerate(cards.values(), 1)
+    multiple = len(cards) != 1
+    if multiple:
+        doc.append(
+            f"<h1>{title}</h1><nav>"
+            + "".join(
+                f'<a href="#paper-{i}">{esc(c["title"])}</a>'
+                for i, c in enumerate(cards.values(), 1)
+            )
+            + "</nav>"
         )
-        + "</nav>"
-    )
     for i, (name, card) in enumerate(cards.items(), 1):
-        doc.append(f'<article id="paper-{i}"><h2>{esc(card["title"])}</h2>')
+        level = 2 if multiple else 1
+        doc.append(f'<article id="paper-{i}"><h{level}>{esc(card["title"])}</h{level}>')
         items = {x["anchor"]: x for x in card["notes"]}
         for chapter in card["outline"]:
             head = " › ".join(chapter["path"])
             if head:
-                doc.append("<h3>" + esc(head) + "</h3>")
+                doc.append(f"<h{level+1}>{esc(head)}</h{level+1}>")
             for anchor in chapter["anchors"]:
                 n = items[anchor]
                 raw = source_by_id[n["id"]]["text"]
@@ -70,10 +94,11 @@ def render(cards, tables, source_by_id, labels, en=False):
                 )
                 doc.append(
                     "<details><summary>"
-                    + esc(where)
-                    + "</summary>"
+                    + ("Source" if en else "原文")
+                    + "</summary><p>"
+                    + esc(where) + "　"
                     + jump
-                    + "<blockquote>"
+                    + "</p><blockquote>"
                     + esc(raw[max(0, a - 75) : a])
                     + "<mark>"
                     + esc(raw[a:b])

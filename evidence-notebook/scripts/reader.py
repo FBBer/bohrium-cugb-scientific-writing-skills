@@ -32,7 +32,7 @@ section>h2,section>h3{margin-bottom:16px}
 .parallel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:clamp(28px,4vw,64px)}
 .parallel>*,.spread>*{min-width:0}
 .parallel p{font-size:clamp(19px,2.1vw,24px);line-height:1.55}
-.pairrow{padding:17px 0;border-top:1px solid #000}
+.pairrow{padding:17px 0}
 .pairrow:last-child{padding-bottom:0}
 .pairhead{padding-bottom:9px}
 .change{font-weight:650;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:.15em}
@@ -40,8 +40,7 @@ section>h2,section>h3{margin-bottom:16px}
 table{width:100%;border-collapse:collapse;text-align:left;font-size:18px;line-height:1.43;font-variant-numeric:tabular-nums}
 th,td{vertical-align:top;padding:12px 16px 12px 0;border:0}
 th:last-child,td:last-child{padding-right:0}
-thead th{font-weight:650;border-bottom:1px solid #000}
-tbody tr+tr>*{border-top:1px solid #c2c2c2}
+thead th{font-weight:650}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 pre{margin:0;white-space:pre-wrap;font:17px/1.55 "SFMono-Regular",Consolas,monospace;tab-size:4}
 a{color:#000;text-underline-offset:.2em}
