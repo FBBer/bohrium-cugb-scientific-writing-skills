@@ -7,16 +7,12 @@ import unicodedata
 from pathlib import Path
 from casework import read, write, atomic_text
 
-UNIT_POWER = r"(?:[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+|\^(?:\{[+−-]?\d+\}|[+−-]?\d+))?"
-UNIT_ATOM = r"(?:°[CF]|dBm|dB|[GMkhdcmunpfμµ]?(?:Hz|Pa|mol|rad|kg|g|m|s|L|K|A|W|V|J|T|F|N))" + UNIT_POWER
-MEASURE_UNIT = r"(?:%|‰|" + UNIT_ATOM + r"(?:(?:[ \t]*[/·⋅][ \t]*|[ \t]+)" + UNIT_ATOM + r")*(?![A-Za-z]))"
-
 PATTERNS = {
     "formula":r"(?<!\\)\$\$[\s\S]+?(?<!\\)\$\$|(?<!\\)\$(?:\\.|[^$\n])+?(?<!\\)\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]",
     "citation":r"\[(?:\s*\d+[a-z]?\s*(?:[,，;；–—-]\s*\d+[a-z]?\s*)*)\]|\\(?:cite\w*|ref|eqref)\{[^{}]+\}",
-    "quantity": r"(?<![A-Za-z0-9_])(?:[+\-−]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-−]?\d+)?)(?:\s*(?:±|×)\s*[+\-−]?\d+(?:\.\d+)?)?(?:\s*" + MEASURE_UNIT + r")?",
+    "quantity":r"(?<![A-Za-z0-9_])(?:[+\-−]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-−]?\d+)?)(?:\s*(?:±|×)\s*[+\-−]?\d+(?:\.\d+)?)?(?:\s*(?:%|‰|°C|°F|dBm|dB|[GMkhdcmunpfμµ]?(?:Hz|Pa|mol|rad|kg|g|m|s|L|K|A|W|V|J|T|F|N)(?:/[kmunμµ]?(?:s|m|L|g)(?:[²³23])?)?)(?![A-Za-z]))?",
 }
-FLAGS={"negative":r"\b(?:not|cannot|never|without|neither|nor|no)\b|\b(?:ca|wo|do|does|did|is|are|was|were|have|has|had|could|would|should)n['’]t\b|未|无|不(?!同|少|仅|论|管|变量|等式|锈钢|确定性)|没有|并非",
+FLAGS={"negative":r"\b(?:not|never|without|neither|nor|no)\b|未|无|不(?:能|会|足|再|存在|表明|显著|显著性)|没有|并非",
        "hedge":r"\b(?:might|may|could|suggest\w*|approximately|potential\w*|consistent with)\b|可能|提示|大约|约为|相符",
        "causal":r"\b(?:caus\w*|led to|resulted in)\b|导致|引起|造成",
        "condition":r"\b(?:only|unless|provided that|if|except|under)\b|仅|只有|如果|若|除非|条件下",
@@ -37,25 +33,8 @@ def protected(text):
     return out
 
 
-CLAUSE_BREAKS=r"\b(?:and|or|but|whereas|while|yet|however|although)\b|[;；]|(?<!\d)[,，](?!\d)|但是|然而|并且|而且|同时|或者|但|而(?=[^且])|并(?!(?:非|未|无|不|没有))"
-
-def split_clauses(text):
-    return [part for part in re.split(CLAUSE_BREAKS,text,flags=re.I) if part.strip(" ,，。.")]
-
-SYMBOL = r"[A-Za-zα-ωΑ-Ω](?:[A-Za-z0-9₀-₉]*)(?:_(?:\{[A-Za-z0-9]+\}|[A-Za-z0-9]+))?"
-SIMPLE_RATIO = re.compile(r"(?<![A-Za-z0-9_/])("+SYMBOL+r")\s*=\s*\(?\s*("+SYMBOL+r")\s*\)?\s*/\s*\(?\s*("+SYMBOL+r")(?![A-Za-z0-9₀-₉_])")
-
-
-def reversed_definition(text, original):
-    def symbol(key):
-        return unicodedata.normalize("NFKC",key).replace("_","").replace("{","").replace("}","")
-    definitions = {(symbol(a),symbol(b),symbol(c)) for a,b,c in SIMPLE_RATIO.findall(original)}
-    return any(b!=c and (a,c,b) in definitions and (a,b,c) not in definitions
-               for a,b,c in (tuple(map(symbol,m)) for m in SIMPLE_RATIO.findall(text)))
-
-
-def linguistic_flags(old,new,gloss=None):
-    review=["reversed numerator and denominator"] if reversed_definition(new,old) else []
+def linguistic_flags(old,new):
+    review=[]
     for key,pattern in FLAGS.items():
         if bool(re.search(pattern,old,re.I))!=bool(re.search(pattern,new,re.I)): review.append(key)
     def directions(text):
@@ -63,70 +42,12 @@ def linguistic_flags(old,new,gloss=None):
         return [key for _,key in found]
     left,right=directions(old),directions(new)
     if len(set(left))>1 and Counter(left)==Counter(right) and left!=right:review.append("direction-to-entity assignment")
-    source_clauses,target_clauses=split_clauses(old),split_clauses(new)
-    original=[bool(re.search(FLAGS["negative"],p,re.I)) for p in source_clauses]
-    revised=[bool(re.search(FLAGS["negative"],p,re.I)) for p in target_clauses]
-    pairs=set()
-    if gloss and min(len(original),len(revised))>1:
-        for term,spec in gloss.items():
-            spec={"target":spec} if isinstance(spec,str) else spec
-            aliases=spec.get("accepted",[])
-            accepted=[spec.get("target"),*([aliases] if isinstance(aliases,str) else aliases)]
-            source_pos=[i for i,p in enumerate(source_clauses) if term_spans(p,term)]
-            target_pos=[i for i,p in enumerate(target_clauses) if any(term_spans(p,a) for a in accepted)]
-            if len(source_pos)==len(target_pos)==1:pairs.add((source_pos[0],target_pos[0]))
-    semantic_swap=any(original[i]!=revised[j] for i,j in pairs)
-    if len(original)>1 and len(original)==len(revised) and sum(original)==sum(revised) and original!=revised:
-        one_to_one=len({i for i,j in pairs})==len({j for i,j in pairs})==len(pairs)
-        known_reorder=(one_to_one and len(pairs)>=len(original)-1 and any(i!=j for i,j in pairs) and not semantic_swap)
-        if not known_reorder:review.append("negation assigned to a different clause")
-    elif semantic_swap:
-        review.append("negation linked to a different glossary entity")
-    def negated_heads(text):
-        return {m[1].casefold() for m in re.finditer(r"\b(?:not|never|cannot|didn['’]t|doesn['’]t|don['’]t)\s+(?:(?:ever|significantly|directly|consistently)\s+)?([a-z]{3,})\b",text,re.I)}
-    if re.search(r"[A-Za-z]",old) and re.search(r"[A-Za-z]",new):
-        lost=negated_heads(old)-negated_heads(new)
-        gained=negated_heads(new)-negated_heads(old)
-        def shared_predicate(words,text):
-            return any(re.search(r"\b"+re.escape(w[:-1] if w.endswith("e") else w)+r"(?:e|es|s|ed|d|ing)?\b",text,re.I) for w in words)
-        if lost and gained and shared_predicate(lost,new) and shared_predicate(gained,old):
-            review.append("different predicate is negated")
     return review
 
 
 def diff(old,new):
     return [{"type":kind,"source_offsets":[i,j],"target_offsets":[k,l],"before":old[i:j],"after":new[k:l]}
             for kind,i,j,k,l in difflib.SequenceMatcher(a=old,b=new,autojunk=False).get_opcodes() if kind!="equal"]
-
-MARKER=re.compile(r"⟪[A-Z][A-Z0-9_:. -]{0,48}⟫|⟦[A-Z][A-Z0-9_:. -]{0,48}⟧|__(?:MATH|FORMULA|CITE|TERM|PLACEHOLDER|TEMP)(?:[_:-][A-Za-z0-9.-]+)*__",re.ASCII)
-
-def term_spans(text,term):
-    if not isinstance(term,str) or not term.strip():
-        return []
-    pattern=re.escape(term)
-    if re.fullmatch(r"[A-Za-z0-9_ -]+",term):
-        pattern=r"(?<![A-Za-z0-9_])"+pattern+r"(?![A-Za-z0-9_])"
-    return [m.span() for m in re.finditer(pattern,text,re.I)]
-
-def glossary_issues(source,target,term,spec):
-    if not term_spans(source,term):
-        return []
-    if isinstance(spec,str):
-        spec={"target":spec}
-    preferred=spec.get("target")
-    aliases=spec.get("accepted",[])
-    forbidden=spec.get("forbidden",[])
-    if isinstance(aliases,str): aliases=[aliases]
-    if isinstance(forbidden,str): forbidden=[forbidden]
-    findings=[]
-    accepted_spans=[span for t in [preferred,*aliases] for span in term_spans(target,t)]
-    if preferred and not accepted_spans:
-        findings.append({"issue":"glossary term","source":term,"expected":preferred})
-    for wrong in forbidden:
-        matches=term_spans(target,wrong)
-        if any(not any(a<=start and stop<=b and (a,b)!=(start,stop) for a,b in accepted_spans) for start,stop in matches):
-            findings.append({"issue":"forbidden glossary variant","source":term,"variant":wrong,"expected":preferred})
-    return findings
 
 
 def audit(source,draft,mode):
@@ -152,12 +73,14 @@ def audit(source,draft,mode):
         seq_a,seq_b=ordered(old),ordered(target)
         if seq_a!=seq_b and Counter(seq_a)==Counter(seq_b) and len(set(seq_a))>1:
             findings.append({"id":key,"issue":"review quantity-to-entity assignment","source_order":seq_a,"target_order":seq_b})
-        added_markers=Counter(MARKER.findall(target))-Counter(MARKER.findall(old))
-        if added_markers:
-            findings.append({"id":key,"issue":"unresolved placeholder","markers":dict(added_markers)})
-        for term,spec in gloss.items():
-            findings.extend({"id":key,**result} for result in glossary_issues(old,target,term,spec))
-        review=linguistic_flags(old,target,gloss)
+        for term,target_term in gloss.items():
+            expected_term=target_term.get("target") if isinstance(target_term,dict) else target_term
+            aliases=target_term.get("accepted",[]) if isinstance(target_term,dict) else []
+            if not expected_term: continue
+            bound=lambda s: (r"(?<![A-Za-z0-9_])"+re.escape(s)+r"(?![A-Za-z0-9_])") if re.fullmatch(r"[A-Za-z0-9_ -]+",s) else re.escape(s)
+            if re.search(bound(term),old,re.I) and not any(re.search(bound(v),target,re.I) for v in [expected_term]+aliases):
+                findings.append({"id":key,"issue":"glossary term","source":term,"expected":expected_term})
+        review=linguistic_flags(old,target)
         if review: findings.append({"id":key,"issue":"semantic review","categories":review})
         for label,pattern in {"figure":r"(?:\bfig(?:ure)?\.?|图)\s*([0-9]+[a-z]?)",
                               "table":r"(?:\btable|表)\s*([0-9]+[a-z]?)",
@@ -178,10 +101,7 @@ def audit(source,draft,mode):
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("mode",choices=["translate","edit"]);p.add_argument("source");p.add_argument("draft");p.add_argument("outdir",type=Path);p.add_argument("--strict",action="store_true")
-    p.add_argument("--word",action="store_true",help="also export an editable parallel text or clean and tracked Word manuscripts")
-    p.add_argument("--original-docx",type=Path,help="reuse the source Word manuscript for tracked edits or bilingual equations")
-    p.add_argument("--preview",action="store_true",help="also render the Word deliverables as PDF using LibreOffice")
-    a=p.parse_args(); source,draft=read(a.source),read(a.draft);report, manuscript=audit(source,draft,a.mode)
+    a=p.parse_args(); report, manuscript=audit(read(a.source),read(a.draft),a.mode)
     name="bilingual.md" if a.mode=="translate" else "revised.md"
     report["status"]="needs_review" if report["findings"] else "checked"
     write(a.outdir/"audit.json",report)
@@ -192,26 +112,5 @@ if __name__=="__main__":
             canonical.replace(a.outdir/("previous-"+hashlib.sha256(canonical.read_bytes()).hexdigest()[:12]+"-"+name))
         name="candidate-"+name
     atomic_text(a.outdir/name,manuscript)
-    if a.word or a.original_docx or a.preview:
-        import subprocess
-        from word_export import export_word,preview_pdf
-        try:
-            candidate = a.strict and report["findings"]
-            if candidate:
-                import hashlib
-                names = ["bilingual.docx"] if a.mode=="translate" else ["tracked.docx","revised.docx"]
-                for filename in names:
-                    canonical = a.outdir/filename
-                    if canonical.is_file() and (not a.original_docx or canonical.resolve()!=a.original_docx.resolve()):
-                        canonical.replace(a.outdir/("previous-"+hashlib.sha256(canonical.read_bytes()).hexdigest()[:12]+"-"+filename))
-            export_word(a.mode,source,draft,a.outdir,"candidate-" if candidate else "",a.original_docx)
-            if a.preview:
-                prefix="candidate-" if candidate else ""
-                names=["bilingual"] if a.mode=="translate" else ["revised","tracked"]
-                cjk=a.mode=="translate" or any(re.search(r"[\u3400-\u9fff]",r.get("target","")) for r in draft)
-                for name in names:
-                    preview_pdf(a.outdir/(prefix+name+".docx"),cjk)
-        except (ValueError, ImportError, OSError, subprocess.SubprocessError) as exc:
-            p.exit(1, str(exc)+"\n")
     print(f"{report['segments_received']} segments, {len(report['findings'])} findings")
     if a.strict and report["findings"]: raise SystemExit(1)

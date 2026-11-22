@@ -33,3 +33,14 @@ output/layout.json 和同名 TXT。表外列名保存在 external_header，网�
 ```sh
 python3 scripts/atlas.py my-example/input/columns.pdf my-example/output/layout.json my-example/output/source-atlas.html
 ```
+
+## 取出论文表格
+
+运行 `parse_pdf.py` 后，同目录的 `layout.tables.tsv` 可用表格软件打开。每格保留物理页、行名、列名、原始数值、页内坐标及检测到的脚注。带表题的无框数值表按字形位置和行列对齐恢复；空白格保留空值。没有足够行、标题或列间距时，保留原页文字，避免把两栏正文误认成表。要核对某个数值，打开原页视图，点选相应的表格行列。也可按行名、列名直接查询，得到数值、物理页、原页位置和脚注。若有多个同名读数，指定 `--page` 或 `--table`。下面是自拟的仪器示例。
+
+```sh
+python3 examples/unruled.py trial/stations.pdf
+python3 scripts/parse_pdf.py trial/stations.pdf trial/layout.json
+python3 scripts/open_tables.py trial/layout.json --row North --column 'Offset (mV)'
+python3 scripts/atlas.py trial/stations.pdf trial/layout.json trial/atlas.html
+```

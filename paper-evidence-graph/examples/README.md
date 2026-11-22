@@ -26,6 +26,11 @@ output/graph.graphml、queries.json 和 figures/。查询结果附原句与位�
 
 [完整用法和输入格式](../SKILL.md)
 
-自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+## 根据任务反查方法
 
-可将同段中的 `At sunrise, Prism A uses Lens B. At dusk, Prism A uses Lens B.` 写入测试材料。在关系 evidence 内引用同句并给 `"prefix":"At dusk, "`；导出的查询路径会保留这一次出现的位置与左右文。
+```sh
+python3 examples/demo.py run
+python3 scripts/lookup.py run/output/graph.json examples/reverse-question.json
+```
+
+问题从 glare test 出发，得到 aperture mask。原文里的关系方向仍为 aperture mask → glare test。多步查询可以组合入边和出边。使用 same 时，每一跳都须来自同一 scope；要并列探索不同条件，可以显式使用 any。

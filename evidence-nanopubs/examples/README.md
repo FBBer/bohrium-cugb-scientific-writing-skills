@@ -1,31 +1,22 @@
-# Nanopublication
-
-要把论文发现拆成可引用、可追溯的单条断言。每条断言连回原句，能区分直接观察、推断和否定。
-
-## 试用示例
+# 最小调用示例
 
 把一条自写传感器结论拆为带遮挡条件、极性与出处的断言，导出四个 TriG 命名图。伪造引句的副本应进入未决清单。
 
-在作品目录运行，使用一个新的示例目录。
+从作品根目录运行以下命令，目标目录应为本次示例专用目录。
 
 ```sh
-python3 examples/demo.py ./my-example
+python3 examples/demo.py /tmp/evidence-nanopubs-example
 ```
 
-用浏览器打开 `my-example/output/reading.html` 阅读结果。输入样例在 `my-example/input/`，准备好的中间材料在 `my-example/work/`。
+脚本现场建立合成输入，写入 input/，处理记录写入 work/，示例主结果写入 output/result.json。源码内含对预期行为的断言，任何一项不满足都会返回错误。此示例与正式评测材料独立。
 
-## 换成自己的材料
-
-把论文材料交给加载该工具的 Agent，指定要发表的声明范围。已整理的声明可直接导出。
+## 从 TriG 找回原句
 
 ```sh
-python3 scripts/nanopubs.py work/sources.json work/claims.json output
+python3 examples/demo.py run
+python3 scripts/resolve_quote.py run/output/nanopubs.trig run/work/sources.json
 ```
 
-output/nanopubs.trig 与 assertions.json。断言、出处与发布信息可分别读取。
+第二条命令需要 RDFLib，可用 python3 -m pip install rdflib 安装。输出列出文件、段落、字符起止和带上下文的原句。可用 --publication 指定一条断言的完整 IRI。位置从该版本对应的文本段开头按 Unicode 码点计数，右端开区间。命令同时核对来源段落的摘要和引句上下文。
 
-[完整用法和输入格式](../SKILL.md)
-
-自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
-
-同一段落两次出现同句时，如 `At sunrise, Prism A uses Lens B. At dusk, Prism A uses Lens B.`，可给第二项引文写 `"quote":"Prism A uses Lens B.","prefix":"At dusk, "`。两项指向的字符范围不同。JSON 的 passages 可检查原句，TriG 的 start 和 end 可交给程序定位。
+TriG 中的两个定位器采用 [W3C Web Annotation](https://www.w3.org/TR/annotation-model/#selectors) 的 TextQuoteSelector 和 TextPositionSelector。

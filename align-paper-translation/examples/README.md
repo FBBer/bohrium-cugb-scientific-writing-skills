@@ -26,8 +26,12 @@ output/bilingual.md。严格模式遇到需复核的译稿时保存在 candidate
 
 [完整用法和输入格式](../SKILL.md)
 
-需要实际的 Word 文件及 PDF 预览时，在本工具的 prose.py 命令后加 `--word --preview`。Word 使用 python-docx，PDF 使用 LibreOffice。
+## 同一结果换一种语序
 
-自己的论文、Word 或实验表可直接放在同一目录，用 `python3 scripts/casework.py index --input materials --work work` 建索引；独立使用时无需另写比赛任务文件。
+从工具目录运行以下命令。原文先写北口，译文先写南口。第二句用“分别”配对。
 
-长稿可先在这个两段样例上分批。运行 `python3 scripts/chunks.py split my-example/work/segments.json my-packets --chars 40`，在各文件的 draft 中填写 target，`python3 scripts/chunks.py merge my-example/work/segments.json my-packets merged.json` 会依原次序合稿。
+```sh
+python3 scripts/prose.py translate examples/outlet-source.json examples/outlet-translation.json output --strict
+```
+
+输出的 bilingual.md 是双语稿。audit.json 的 alignment[].measurements 列出各出口的数值与单位。把南口 9 mV 和北口 3 mV 对调，可以在 findings 中找到两个受影响的出口。

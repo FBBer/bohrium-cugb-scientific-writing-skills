@@ -34,6 +34,3 @@ write(result/"audit.json",report);atomic_text(result/"revised.md",md)
 bad=[dict(draft[0],target=draft[0]["target"].replace("mm","cm")),draft[1]]
 assert any(i["issue"]=="protected quantity" for i in audit(segments,bad,"edit")[0]["findings"])
 done(draft,[evidence(idx,s) for s in raw])
-
-from subprocess import run as run_view
-run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "revised.md"), str(result / "reading.html")], check=True)

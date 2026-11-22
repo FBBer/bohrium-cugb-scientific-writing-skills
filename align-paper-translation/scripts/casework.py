@@ -1,8 +1,6 @@
 """Build a source index and validate an agent's result against the supplied case."""
 import argparse
 import collections
-import csv
-from source_records import delimited_records, json_records, lookup
 import hashlib
 import json
 import os
@@ -99,85 +97,12 @@ def pdf_parts(path):
             yield n, page.extract_text() or ""
 
 
-MATH = "{http://schemas.openxmlformats.org/officeDocument/2006/math}"
-ALT = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
-LEVEL_TEXT = {"superscript": str.maketrans("0123456789+-−=()", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻⁼⁽⁾"),
-              "subscript": str.maketrans("0123456789+-−=()", "₀₁₂₃₄₅₆₇₈₉₊₋₋₌₍₎")}
-
-
-def script_text(value, level):
-    if not value:
-        return ""
-    if re.fullmatch(r"[0-9+−=()\-]+", value):
-        return value.translate(LEVEL_TEXT[level])
-    return ("^(" if level == "superscript" else "_(") + value + ")"
-
-
-def math_text(node):
-    """Linear reading for common native Word equations; retain an explicit marker for other constructs."""
-    if node is None:
-        return ""
-    name = node.tag.rsplit("}", 1)[-1]
-    if name.endswith("Pr") or not node.tag.startswith(MATH):
-        return ""
-    part = lambda tag: math_text(node.find(MATH + tag))
-    if name == "t":
-        return node.text or ""
-    if name == "f":
-        return "(" + part("num") + ")/(" + part("den") + ")"
-    if name in {"sSub", "sSup", "sSubSup", "sPre"}:
-        low = script_text(part("sub"), "subscript")
-        high = script_text(part("sup"), "superscript")
-        return low + high + part("e") if name == "sPre" else part("e") + low + high
-    if name == "rad":
-        degree = part("deg")
-        return ("root[" + degree + "]" if degree else "√") + "(" + part("e") + ")"
-    if name == "d":
-        def delim(tag, default):
-            elem = node.find(MATH + "dPr/" + MATH + tag)
-            return elem.get(MATH + "val", default) if elem is not None else default
-        return delim("begChr", "(") + delim("sepChr", "|").join(math_text(e) for e in node.findall(MATH+"e")) + delim("endChr", ")")
-    if name in {"oMath", "oMathPara", "r", "num", "den", "e", "sub", "sup", "deg"}:
-        return "".join(math_text(child) for child in node)
-    return "⟦OMML:" + name + "⟧"
-
-
-def word_text(node):
-    if node.tag in {W+"del", W+"moveFrom", W+"instrText", W+"delText", W+"pPr", W+"rPr"}:
-        return ""
-    if node.tag in {MATH+"oMath", MATH+"oMathPara"}:
-        return math_text(node)
-    if node.tag == ALT+"AlternateContent":
-        choices = node.findall(ALT+"Choice")
-        first = next((part for part in choices if part.find(".//"+MATH+"oMath") is not None), None)
-        if first is None:
-            first = node.find(ALT+"Fallback")
-        if first is None and choices:
-            first = choices[0]
-        return word_text(first) if first is not None else ""
-    if node.tag == W+"t":
-        return node.text or ""
-    if node.tag in {W+"br", W+"cr", W+"tab", W+"noBreakHyphen"}:
-        return {W+"br":"\n", W+"cr":"\n", W+"tab":"\t", W+"noBreakHyphen":"‑"}[node.tag]
-    content = "".join(word_text(child) for child in node)
-    if node.tag == W+"r" and content:
-        setting = node.find(W+"rPr/"+W+"vertAlign")
-        level = setting.get(W+"val") if setting is not None else None
-        if level in LEVEL_TEXT:
-            return script_text(content,level)
-    return content
-
-
 def office_parts(path):
     with zipfile.ZipFile(path) as archive:
         if path.suffix.lower() == ".docx":
             tree = ET.fromstring(archive.read("word/document.xml"))
-            note_links = collections.defaultdict(list)
             for i, p in enumerate(tree.iter(W+"p"), 1):
-                for kind in ("footnote","endnote"):
-                    for marker in p.iter(W+kind+"Reference"):
-                        note_links[kind,marker.get(W+"id")].append(i)
-                s = word_text(p)
+                s = "".join(t.text or "" for t in p.iter(W+"t"))
                 if s.strip():
                     yield f"word/document.xml:p{i}", s
             for table_number, table in enumerate(tree.iter(W+"tbl"), 1):
@@ -191,24 +116,11 @@ def office_parts(path):
                         end = f"-C{column+width-1}" if width > 1 else ""
                         location = f"word/document.xml:tbl{table_number}:R{row_number}:C{column}{end}"
                         paragraphs_in_cell = cell.findall(W+"p")
-                        cell_text = "\n".join(word_text(p) for p in paragraphs_in_cell).strip()
+                        cell_text = "\n".join("".join(t.text or "" for t in p.iter(W+"t"))
+                                                for p in paragraphs_in_cell).strip()
                         if cell_text:
                             yield location, cell_text
                         column += width
-            for notes in ("footnotes", "endnotes"):
-                member = "word/" + notes + ".xml"
-                if member not in archive.namelist():
-                    continue
-                for note in ET.fromstring(archive.read(member)):
-                    if note.get(W+"type") in {"separator", "continuationSeparator", "continuationNotice"}:
-                        continue
-                    number = note.get(W+"id")
-                    for i, para in enumerate(note.iter(W+"p"), 1):
-                        text = word_text(para)
-                        if text.strip():
-                            yield f"{member}:{number}:p{i}", text
-                            for owner in note_links[notes[:-1],number]:
-                                yield f"word/document.xml:p{owner}/{notes[:-1]}:{number}:p{i}", text
             return
         if path.suffix.lower() == ".pptx":
             for member in sorted(archive.namelist()):
@@ -315,15 +227,9 @@ def spreadsheet_parts(path, issues, source):
 
 
 def prepare(input_dir, work):
-    root = Path(input_dir).resolve()
-    work = Path(work).resolve()
-    if not root.is_dir() or work == root:
-        raise ValueError("choose an existing materials folder and a separate output folder")
-    case_file = root/"case.json"
-    case = read(case_file) if case_file.is_file() else {}
-    if not isinstance(case, dict):
-        raise ValueError("case.json must contain an object")
-    rows, files, issues, records = [], [], [], []
+    root = Path(input_dir)
+    case = read(root/"case.json")
+    rows, files, issues = [], [], []
 
     def append(source, location, text):
         if not text.strip():
@@ -331,10 +237,9 @@ def prepare(input_dir, work):
         anchor = source + "#" + location
         rows.append({"id": "s"+hashlib.sha256(anchor.encode()).hexdigest()[:15],
                      "source":source, "location":location, "text":text})
-        return rows[-1]["id"]
 
     for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.is_symlink() or (root in work.parents and work in path.parents):
+        if not path.is_file() or path.is_symlink():
             continue
         rel = path.relative_to(root).as_posix()
         files.append({"path":rel, "bytes":path.stat().st_size})
@@ -346,23 +251,8 @@ def prepare(input_dir, work):
                 data = case if path == root/"case.json" else read(path)
                 if path == root/"case.json":
                     data = {k:v for k,v in data.items() if k not in META}
-                records.extend(json_records(data, rel, append))
-            elif ext in {".csv", ".tsv", ".jsonl"}:
-                raw = path.read_text(encoding="utf-8-sig")
-                for loc, para in paragraphs(raw):
-                    append(rel, loc, para)
-                if ext == ".jsonl":
-                    for line_number, line in enumerate(raw.splitlines(), 1):
-                        if not line.strip():
-                            continue
-                        try:
-                            document = json.loads(line)
-                        except ValueError as error:
-                            issues.append({"file":rel, "location":f"L{line_number}", "reason":str(error)})
-                            continue
-                        records.extend(json_records(document, rel, append, f"L{line_number}:"))
-                else:
-                    records.extend(delimited_records(path, rel, append))
+                for loc, val in pointer(data):
+                    append(rel, loc, val)
             elif ext == ".pdf":
                 for n, text in pdf_parts(path):
                     if not text.strip():
@@ -381,9 +271,9 @@ def prepare(input_dir, work):
                     append(rel, loc, para)
             else:
                 issues.append({"file":rel,"reason":"binary/other format; open in its native reader"})
-        except (OSError, ValueError, ImportError, KeyError, RuntimeError, ET.ParseError, zipfile.BadZipFile, csv.Error, subprocess.SubprocessError) as exc:
+        except (OSError, ValueError, ImportError, KeyError, RuntimeError, ET.ParseError, zipfile.BadZipFile, subprocess.SubprocessError) as exc:
             issues.append({"file":rel,"reason":str(exc)})
-    index = {"case_id":case.get("case_id"),"files":files,"sources":rows,"records":records,"issues":issues}
+    index = {"case_id":case.get("case_id"),"files":files,"sources":rows,"issues":issues}
     write(Path(work)/"sources.json", index)
     return index
 
@@ -492,12 +382,6 @@ def main():
     p.add_argument("--source",help="exact path of one indexed input")
     p.add_argument("--location",default="",help="prefix of an indexed position")
     p.add_argument("--limit",type=int,default=12)
-    p=sub.add_parser("rows",help="look up values within a single JSON record or a single CSV/TSV observation")
-    p.add_argument("--index",default="/app/work/sources.json")
-    p.add_argument("--source",required=True)
-    p.add_argument("--where",nargs=2,action="append",default=[],metavar=("FIELD","VALUE"))
-    p.add_argument("--select",action="append",default=[],metavar="FIELD")
-    p.add_argument("--limit",type=int,default=12)
     p=sub.add_parser("check")
     p.add_argument("--case",default="/input/case.json")
     p.add_argument("--result",default="/app/output/result.json")
@@ -512,11 +396,6 @@ def main():
     if args.op=="index":
         index=prepare(args.input,args.work)
         print(json.dumps({"case_id":index["case_id"],"files":len(index["files"]),"anchors":len(index["sources"]),"issues":index["issues"]},ensure_ascii=False))
-    elif args.op=="rows":
-        try:
-            print(json.dumps(lookup(read(args.index),args.source,args.where,args.select,args.limit),ensure_ascii=False))
-        except ValueError as error:
-            cli.exit(1,str(error)+"\n")
     elif args.op=="find":
         try:
             print(json.dumps(find_sources(read(args.index),args.terms,args.source,args.location,args.limit),ensure_ascii=False))

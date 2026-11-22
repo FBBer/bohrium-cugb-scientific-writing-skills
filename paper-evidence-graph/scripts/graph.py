@@ -1,6 +1,5 @@
 """Build a provenance-preserving directed multigraph and run auditable case-specific queries."""
 import argparse
-from relation_evidence import incompatible_relation
 import collections
 import hashlib
 import json
@@ -99,18 +98,7 @@ def check_relation_polarity(edges, nodes, sources, issues):
         for ref in edge["evidence"]:
             quote = ref["quote"]
             passage = sources.get(ref["id"], quote)
-            subject,target = nodes[edge["source"]],nodes[edge["target"]]
-            if incompatible_relation(quote,edge.get("display_predicate") or edge["predicate"],
-                                     [subject["label"],*subject.get("aliases",[])],
-                                     [target["label"],*target.get("aliases",[])],edge["polarity"]):
-                issues.append({"edge":edge["predicate"],"evidence":ref,
-                               "issues":["the quoted clause reverses or qualifies this directed relation"]})
-                continue
-            selection = ref.get("passage")
-            if selection and ref["id"] in sources:
-                excerpts = [(selection["start"],selection["end"])]
-            else:
-                excerpts = [m.span() for m in re.finditer(re.escape(quote), passage)]
+            excerpts = [m.span() for m in re.finditer(re.escape(quote), passage)]
             signs = {
                 passage_polarity(passage, m)
                 for m in pattern.finditer(passage)
@@ -127,7 +115,6 @@ def check_relation_polarity(edges, nodes, sources, issues):
 
 
 def dataset(index,plan,previous=None):
-    from passages import locate
     graph=previous or {"nodes":[],"edges":[]}
     nodes={n["id"]:dict(n) for n in graph["nodes"]};edges={e["id"]:dict(e) for e in graph["edges"]}
     refs={};notes=[];source_files={s["id"]:s["source"] for s in index["sources"]}
@@ -152,7 +139,6 @@ def dataset(index,plan,previous=None):
             old["members"]=unique(old.get("members",[])+[{"key":local,"document":n.get("document",source_files[ev[0]["id"]])}])
             if n.get("merge_reason"): old["alignments"]=list(dict.fromkeys(old.get("alignments",[])+[n["merge_reason"]]))
         else: nodes[sid]={**n,"id":sid,"members":[{"key":local,"document":n.get("document",source_files[ev[0]["id"]])}]}
-    blocks = {r["id"]:r for r in index["sources"]}
     for e in plan.get("edges",[]):
         a=refs.get(e.get("source"),e.get("source"));b=refs.get(e.get("target"),e.get("target"))
         ev=e.get("evidence",[]);err=check_evidence(ev,index["sources"])
@@ -160,16 +146,6 @@ def dataset(index,plan,previous=None):
         if not ev or not all(e.get(k) for k in ("predicate","scope","strength","polarity")): err.append("missing qualified relation or evidence")
         if e.get("strength") not in {"direct","inference","quoted"}: err.append("unknown support type")
         if e.get("polarity") not in {"positive","negative","uncertain"}: err.append("unknown polarity")
-        if not err:
-            located = []
-            for ref in ev:
-                try:
-                    located.append({**ref, "passage":locate(blocks[ref["id"]],ref)})
-                except ValueError as exc:
-                    notes.append({"edge":e["predicate"], "evidence":ref, "issues":[str(exc)]})
-            ev = located
-            if not ev:
-                err.append("no uniquely located evidence for this relation")
         if err: notes.append({"edge":e.get("predicate"),"issues":err});continue
         sid=stable("e",[a,e["predicate"],b,e["scope"],e["polarity"],e["strength"]])
         edges[sid]={**e,"id":sid,"source":a,"target":b,"evidence":unique(edges.get(sid,{}).get("evidence",[])+ev)}
@@ -181,17 +157,23 @@ def unique(rows):
     return list({json.dumps(r,sort_keys=True,ensure_ascii=False):r for r in rows}.values())
 
 def query_paths(graph, spec, refs):
-    """Follow a declared predicate sequence in the cited direction without inferring a new edge."""
+    """Trace cited edges in either direction, retaining the relation as the source states it."""
     steps = spec["steps"]
     if not isinstance(steps,list) or not 1 <= len(steps) <= 6:
         raise ValueError("a path query needs between one and six ordered steps")
     nodes = {n["id"]:n for n in graph["nodes"]}
-    by_source = collections.defaultdict(list)
+    policy = spec.get("scope_policy", "any")
+    if policy not in {"any", "same"}:
+        raise ValueError("scope_policy must be any or same")
+    adjacent = {"out": collections.defaultdict(list), "in": collections.defaultdict(list)}
     for edge in graph["edges"]:
-        by_source[edge["source"]].append(edge)
+        adjacent["out"][edge["source"]].append((edge["target"], edge))
+        adjacent["in"][edge["target"]].append((edge["source"], edge))
     for step in steps:
-        if not isinstance(step,dict) or not step.get("predicate") or set(step) - {"predicate","strength","polarity","scope","target_type"}:
+        if not isinstance(step,dict) or not step.get("predicate") or set(step) - {"predicate","strength","polarity","scope","target_type","direction"}:
             raise ValueError("each path step needs a predicate and supported qualifiers")
+        if step.get("direction", "out") not in {"out", "in"}:
+            raise ValueError("a step direction must be out or in")
     start, finish = (refs.get(spec.get(key),spec.get(key)) for key in ("from","to"))
     if start is None:
         raise ValueError("supply the starting entity for a directed path query")
@@ -199,14 +181,27 @@ def query_paths(graph, spec, refs):
     for step in steps:
         qualified = {"strength":"direct","polarity":"positive",**step}
         target_type = qualified.pop("target_type",None)
-        paths = [(ids + [edge["target"]], route + [edge])
-                 for ids,route in paths for edge in by_source[ids[-1]]
-                 if edge["target"] not in ids and (not target_type or nodes[edge["target"]]["type"]==target_type)
-                 and all(edge.get(k)==v for k,v in qualified.items())]
+        direction = qualified.pop("direction", "out")
+        extended = []
+        for ids, route in paths:
+            for next_id, edge in adjacent[direction][ids[-1]]:
+                if next_id in ids or (target_type and nodes[next_id]["type"] != target_type):
+                    continue
+                if policy == "same" and route and edge["scope"] != route[0]["scope"]:
+                    continue
+                if all(edge.get(k) == v for k, v in qualified.items()):
+                    extended.append((ids + [next_id], route + [edge]))
+        paths = extended
     if finish is not None:
         paths = [(ids,edges) for ids,edges in paths if ids[-1]==finish]
-    route_rows = [{"nodes":ids, "steps":[{"edge":e["id"],"predicate":e["predicate"],"evidence":e["evidence"]} for e in edges]}
-                  for ids,edges in paths]
+    route_rows = []
+    for ids, edges in paths:
+        hops = []
+        for index, edge in enumerate(edges):
+            hop = {k:edge[k] for k in ("source","target","predicate","scope","strength","polarity","evidence")}
+            hops.append({**hop, "edge":edge["id"], "direction":steps[index].get("direction","out"),
+                         "traversed_from":ids[index], "traversed_to":ids[index+1]})
+        route_rows.append({"nodes":ids, "steps":hops})
     return {"question":spec["question"], "filters":{k:v for k,v in spec.items() if k!="question"},
             "paths":route_rows, "nodes":sorted({node for ids,_ in paths for node in ids}),
             "edges":list(dict.fromkeys(edge["id"] for _,edges in paths for edge in edges)),

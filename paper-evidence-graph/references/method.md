@@ -19,5 +19,3 @@ python3 "$S/scripts/graph.py" /app/work/sources.json /app/work/graph-plan.json /
 常规纯文本案例仅需 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
 
 多跳查询示例为 {"question":"样品经哪个方法得到哪项指标？","from":"specimen","to":"metric","steps":[{"predicate":"tested_by"},{"predicate":"measures"}]}。from、to 可以是计划的局部键或图中 ID，to 可省略。每步默认只取直接肯定关系，可明确指定其他 strength、polarity 或 scope。paths 中每一跳含独立证据，走到同一节点的两条路线分别保留。
-
-对常见英文关系按完整句式区分主动、被动和显式限定。比如 B was calibrated by A 给出 A 对 B 的校准关系。资料只有别名或间接支持时，使用来源限定和相应的证据强度。

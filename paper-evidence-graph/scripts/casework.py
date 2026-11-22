@@ -1,8 +1,6 @@
 """Build a source index and validate an agent's result against the supplied case."""
 import argparse
 import collections
-import csv
-from source_records import delimited_records, json_records, lookup
 import hashlib
 import json
 import os
@@ -315,15 +313,9 @@ def spreadsheet_parts(path, issues, source):
 
 
 def prepare(input_dir, work):
-    root = Path(input_dir).resolve()
-    work = Path(work).resolve()
-    if not root.is_dir() or work == root:
-        raise ValueError("choose an existing materials folder and a separate output folder")
-    case_file = root/"case.json"
-    case = read(case_file) if case_file.is_file() else {}
-    if not isinstance(case, dict):
-        raise ValueError("case.json must contain an object")
-    rows, files, issues, records = [], [], [], []
+    root = Path(input_dir)
+    case = read(root/"case.json")
+    rows, files, issues = [], [], []
 
     def append(source, location, text):
         if not text.strip():
@@ -331,10 +323,9 @@ def prepare(input_dir, work):
         anchor = source + "#" + location
         rows.append({"id": "s"+hashlib.sha256(anchor.encode()).hexdigest()[:15],
                      "source":source, "location":location, "text":text})
-        return rows[-1]["id"]
 
     for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.is_symlink() or (root in work.parents and work in path.parents):
+        if not path.is_file() or path.is_symlink():
             continue
         rel = path.relative_to(root).as_posix()
         files.append({"path":rel, "bytes":path.stat().st_size})
@@ -346,23 +337,8 @@ def prepare(input_dir, work):
                 data = case if path == root/"case.json" else read(path)
                 if path == root/"case.json":
                     data = {k:v for k,v in data.items() if k not in META}
-                records.extend(json_records(data, rel, append))
-            elif ext in {".csv", ".tsv", ".jsonl"}:
-                raw = path.read_text(encoding="utf-8-sig")
-                for loc, para in paragraphs(raw):
-                    append(rel, loc, para)
-                if ext == ".jsonl":
-                    for line_number, line in enumerate(raw.splitlines(), 1):
-                        if not line.strip():
-                            continue
-                        try:
-                            document = json.loads(line)
-                        except ValueError as error:
-                            issues.append({"file":rel, "location":f"L{line_number}", "reason":str(error)})
-                            continue
-                        records.extend(json_records(document, rel, append, f"L{line_number}:"))
-                else:
-                    records.extend(delimited_records(path, rel, append))
+                for loc, val in pointer(data):
+                    append(rel, loc, val)
             elif ext == ".pdf":
                 for n, text in pdf_parts(path):
                     if not text.strip():
@@ -381,9 +357,9 @@ def prepare(input_dir, work):
                     append(rel, loc, para)
             else:
                 issues.append({"file":rel,"reason":"binary/other format; open in its native reader"})
-        except (OSError, ValueError, ImportError, KeyError, RuntimeError, ET.ParseError, zipfile.BadZipFile, csv.Error, subprocess.SubprocessError) as exc:
+        except (OSError, ValueError, ImportError, KeyError, RuntimeError, ET.ParseError, zipfile.BadZipFile, subprocess.SubprocessError) as exc:
             issues.append({"file":rel,"reason":str(exc)})
-    index = {"case_id":case.get("case_id"),"files":files,"sources":rows,"records":records,"issues":issues}
+    index = {"case_id":case.get("case_id"),"files":files,"sources":rows,"issues":issues}
     write(Path(work)/"sources.json", index)
     return index
 
@@ -492,12 +468,6 @@ def main():
     p.add_argument("--source",help="exact path of one indexed input")
     p.add_argument("--location",default="",help="prefix of an indexed position")
     p.add_argument("--limit",type=int,default=12)
-    p=sub.add_parser("rows",help="look up values within a single JSON record or a single CSV/TSV observation")
-    p.add_argument("--index",default="/app/work/sources.json")
-    p.add_argument("--source",required=True)
-    p.add_argument("--where",nargs=2,action="append",default=[],metavar=("FIELD","VALUE"))
-    p.add_argument("--select",action="append",default=[],metavar="FIELD")
-    p.add_argument("--limit",type=int,default=12)
     p=sub.add_parser("check")
     p.add_argument("--case",default="/input/case.json")
     p.add_argument("--result",default="/app/output/result.json")
@@ -512,11 +482,6 @@ def main():
     if args.op=="index":
         index=prepare(args.input,args.work)
         print(json.dumps({"case_id":index["case_id"],"files":len(index["files"]),"anchors":len(index["sources"]),"issues":index["issues"]},ensure_ascii=False))
-    elif args.op=="rows":
-        try:
-            print(json.dumps(lookup(read(args.index),args.source,args.where,args.select,args.limit),ensure_ascii=False))
-        except ValueError as error:
-            cli.exit(1,str(error)+"\n")
     elif args.op=="find":
         try:
             print(json.dumps(find_sources(read(args.index),args.terms,args.source,args.location,args.limit),ensure_ascii=False))

@@ -5,22 +5,49 @@ description: 把配置、代码、日志和论文转为可复核的方法实验�
 
 # 方法与实验章节写作
 
-按执行顺序重建可复现的方法与实验章节。核对数据、划分、对照、真实运行参数、评测条件及限制。区分预设值与日志中实际使用的值。
+列明材料来源、实验身份、运行时间与阶段。区分默认配置、提交的有效配置、一次实际运行的覆盖值，以及文章中汇总的设置。按 run_id、版本、数据划分和实验组对齐，多个实验不同取值通常不构成冲突。
 
-先用 `python3 "$S/scripts/casework.py" index --input /input --work /app/work` 生成 sources.json。证据用实际 id 和原文 quote 对应。下面使用示例文件名。
+## 从本次案例开始
+
+读取 /input/case.json、同目录 task.md 和列出的原始附件。若存在 environment/resources.yaml，按其记录使用当前镜像的工具。在工作目录记下输出字段、类型、语言、文件名和原材料位置。用实际材料内容判断领域。此包不依赖其他参赛目录、网络、密钥或个人绝对路径。
 
 ```sh
 S=/skills/weekly-skill
-python3 "$S/scripts/settings.py" /input /app/work/settings.json
-python3 "$S/scripts/compose.py" methods /app/work/sources.json /app/work/methods-plan.json /app/output
+mkdir -p /app/work /app/output
+python3 "$S/scripts/casework.py" index --input /input --work /app/work
 ```
 
-遇到配置与实际日志冲突时，在参数里同时引两者，用 selected_evidence 明确哪一条记录支持最终采用的值。正文、参数表与复现步骤均可独立使用。
+sources.json 保存真实文件、位置和逐字摘录。JSON 输入可按 JSON Pointer 回查，PDF 使用物理页号，文本使用行号。除说明和输出契约外，case.json 内嵌的材料也会被索引。检查文件清单中的图片、表格和解析警告，必要时用原生阅读器打开。索引只是定位工具，以原附件为准。
 
-整理多组实验时，用 rows 按样品、条件和数据列取数。给每个参数保留对应原行和单位列头。
+## 执行方法
 
-需要可编辑的章节和参数表时，在 compose.py 命令末尾加 `--word --preview`。methods.docx 中正文与参数单元格均可跳到支持它的原句或原始数据格，methods.pdf 由这一稿件渲染。Word 需要 python-docx，PDF 另需 LibreOffice。
+settings.py 对 JSON、YAML、CSV、配置和日志列出同名参数的候选差异，输出值、文件和位置。不同 run、不同作用域分开判定。对同一实验存在不一致时，查匹配实际运行的命令参数和日志，保留旧值、实际值和判据；材料不足时并列，标“需作者确认”。不将随机种子等同独立重复，不将训练规模推作测试样本数。
 
-从 `/input/case.json` 读取 case_id 和本题 output_contract，把实际正文、证据和文件写到 `/app/output`，按原字段与类型填写 result.json。已有成稿可用 `casework.py check` 核对格式。题目指定可编辑文件和预览时，提交对应文件并打开预览核对。
+写有逻辑先后的步骤，各含输入、操作、输出和判定条件。分开说明数据来源与版本、预处理与泄漏控制、样本单位及划分、训练/验证/测试、基线版本和计算预算、评价指标、重复与汇总口径。复现清单只用实际给出的命令/环境，示意命令标明需填项。为每个条件说明失效的具体场景。对无日志证明的步骤区分“拟采用”和“实际执行”。
 
-[输入格式与领域处理](references/method.md) · [可运行示例](examples/README.md)
+plan 含 language、sections，分节的 paragraphs 是有序句项数组的数组。每项有 id、role、text、evidence=[{"id":"S","quote":"原文"}]。角色为 procedure、data、split、parameter、evaluation、baseline、environment、repetition、limitation。另给 parameters=[{"name":"参数","value":"实际值","unit":"单位或无量纲","scope":"运行/阶段","status":"reported","evidence":[...]}]；冲突项列两个来源及 resolution，未报告给原因。reproduction 对象记录版本、环境、命令、数据、种子、划分、可复做步骤及缺口。
+
+```sh
+python3 "$S/scripts/settings.py" /input /app/work/settings.json
+python3 "$S/scripts/compose.py" methods /app/work/sources.json /app/work/methods-plan.json /app/output --strict
+```
+
+在跨文献比较或参数归属句中，为每一对研究主体和条件分别给出 bindings。每项用 id、quote、subject_in_source、condition_in_source 记录同一来源子句里的两个原文片段；把该引文也列入本句 evidence。脚本逐对检查锚点及两个片段能否同时回指该子句。正文翻译过的名称、指代和因果关系仍需逐句对应。
+
+## 交付与复核
+
+核对正文、参数表和运行记录中的数值、单位与归属，核查百分数的分母。对不需要或缺失的统计量注明该判断的依据。交付 methods.md、parameters.json、reproduction.json 与论断—证据表，按给定案例输出契约填入提交结果。
+
+把可编辑成果写入 /app/output。正文使用适合目标读者的科研表达，直接给出译文、论证、参数或结论。每个结果沿用原 case_id 和 output_contract 的字段、类型与层级。输出文件名遵循 task.md。来源差异、缺项的具体原因和运行状态写入契约指定字段或单独的审计文件。Office 文档和图形按要求附可编辑源与实物渲染。
+
+```sh
+python3 "$S/scripts/casework.py" check --case /input/case.json --result /app/output/result.json
+```
+
+## 独立运行环境
+
+结构化 YAML 解析可用 python3 -m pip install PyYAML，本地实测 6.0.3。纯文本键值、JSON 和 CSV 使用 Python 标准库。 JSON Schema 的完整校验可选装 jsonschema（本地实测 4.26.0）。正式评测优先采用镜像已有依赖；独立使用时在自己的环境配置。
+
+## 可复用的最小示例
+
+从本目录运行 `python3 examples/demo.py /tmp/reconstruct-methods-example`。示例使用自写的小样本，实际运行结果保存在指定目录，输入和预期现象见 [示例说明](examples/README.md)。发行版本 1.0，运行环境为 Python 3.9 或以上。可在作品仓库相应目录的 Issues 中附匿名化最小复现、实际输出和依赖版本反馈问题。

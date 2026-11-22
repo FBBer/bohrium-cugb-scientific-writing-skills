@@ -34,10 +34,14 @@ def direction_readings(quote, predicate, subjects, targets):
     return readings
 
 
-def incompatible_relation(quote, predicate, subjects, targets, polarity):
+def incompatible_relation(quote, predicate, subjects, targets, polarity, *, quoted_tentative=False):
     seen = direction_readings(quote,predicate,subjects,targets)
     if not seen:
         return False
     if not any(direction==1 for direction,_ in seen):
         return True
+    if quoted_tentative and (1, "uncertain") in seen:
+        wording = re.sub(r"\b(?:may|might|could|can|possibly)\b\s*", "", quote, flags=re.I)
+        if polarity == "uncertain" or (1, polarity) in direction_readings(wording, predicate, subjects, targets):
+            return False
     return polarity in {"positive","negative"} and (1,polarity) not in seen

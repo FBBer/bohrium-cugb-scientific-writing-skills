@@ -13,6 +13,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 from casework import write, atomic_text
 from atlas import file_digest
+from open_tables import borderless, table_tsv
 
 
 def three_column_order(lines, width):
@@ -304,6 +305,7 @@ def mupdf_pages(doc):
                     tables.append(content)
             except (ValueError,RuntimeError,AttributeError) as exc:
                 tables.append({"unresolved":str(exc)})
+        tables.extend(borderless(page.get_text("words"), tables))
         yield page.rect.width,page.rect.height,lines,images,tables
 
 
@@ -543,6 +545,7 @@ def run(path,dest,language):
         result["structure"]=structure(result["pages"],bookmarks)
         if result["issues"]: result["status"]="partial"
         write(dest,result)
+        atomic_text(dest.with_suffix(".tables.tsv"), table_tsv(result["pages"]))
         atomic_text(dest.with_suffix(".txt"),"\n".join(text)+"\n")
         return result
     finally:

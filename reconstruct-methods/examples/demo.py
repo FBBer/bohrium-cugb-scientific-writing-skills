@@ -30,6 +30,3 @@ settings=collect(inp);assert "window" in settings["candidate_conflicts"];write(w
 plan={"sections":[{"title":"Acquisition","paragraphs":[[{"id":"M1","role":"procedure","text":raw["protocol.txt"],"evidence":[ev[2]]},{"id":"M2","role":"parameter","text":"The effective window was 15 ms.","evidence":[ev[1]]}]]}],"parameters":[{"name":"window","scope":"R1","value":"15","unit":"ms","status":"conflict","evidence":ev[:2],"resolution":"R1 runtime overrides default."}],"reproduction":{"effective_run":"R1","random_seed":"unreported"}}
 write(work/"methods-plan.json",plan);r=render("methods",idx,plan,result);assert not r["issues"]
 done({"methods":"methods.md","parameters":"parameters.json","reproduction":"reproduction.json"},ev,["Random seed was not reported."])
-
-from subprocess import run as run_view
-run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "methods.md"), str(result / "reading.html")], check=True)

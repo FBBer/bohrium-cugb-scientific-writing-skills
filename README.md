@@ -15,6 +15,6 @@
 | 实验记录、配置文件和实际运行日志。 | 还原用的参数、数据划分和实验条件，标明冲突与未记录的单位。 | [方法与实验章节写作](reconstruct-methods/examples/README.md) |
 | 含主文件、子文件、参考文献和图片的 LaTeX 工程。 | 得到可交给他人重编的源码与 PDF，缺文件时能找到出错位置。 | [LaTeX 写作与编译](build-latex-manuscript/examples/README.md) |
 
-进入选定的作品目录，运行 `python3 examples/demo.py ./my-example`，然后打开 `my-example/output/reading.html`。每份示例还会输出该题的可编辑文件与原始记录。需要直接用自己的论文时，按相应工具说明传入材料。
+进入选定的作品目录，运行 `python3 examples/demo.py ./my-example`，成品写入示例目录。每题的用法和文件说明见对应的使用示例。
 
-Python 3.9 及以上可运行文本处理工具。PDF 解析使用 PyMuPDF 或 Poppler，扫描区域识别另需 Tesseract 和相应语种数据。LaTeX 需要与原模板匹配的引擎及宏包，BibTeX 输入可用 Pandoc 读取。翻译和润色可输出 Word 双语稿或原生修订，用 python-docx 生成，以 LibreOffice 渲染 PDF。
+Python 3.9 及以上可运行文本处理工具。PDF 解析使用 PyMuPDF 或 Poppler，扫描区域识别另需 Tesseract 和相应语种数据。LaTeX 需要与原模板匹配的引擎及宏包，BibTeX 输入可用 Pandoc 读取。从 Nanopublication 的 TriG 文件回查引文可安装 RDFLib。翻译输出 Markdown 双语稿；润色输出修订稿及修改记录。

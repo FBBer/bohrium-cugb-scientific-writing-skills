@@ -5,6 +5,16 @@ description: 沿论文真实结构建立含研究条件、发现和局限的笔�
 
 # 结构化阅读笔记
 
+## 从一组论文直接做笔记
+
+把论文放进一个目录，运行下面的命令。可读取有文字层的 PDF、Word、Markdown 和纯文本。示例包含两篇自拟的中英文短文。
+
+```sh
+python3 scripts/notebook.py examples/papers reading-notes --focus 漂移 --focus drift
+```
+
+先读 `reading-notes/notes.md`，再按编号找到原文。`study-matrix.tsv` 把各篇论文的同类证据并排列在一张表中。`comparison.tsv` 按论文、研究问题、方法、发现、作者解释和局限列出原句；`reading-cards.json` 另存位置和字符范围。只有正文中出现的内容才进入笔记。缺少哪一类原文记在 `uncovered`，原文中的参考文献列表不参与摘录。多材料目录可重复添加 `--paper 相对路径`。`--language en` 使用英文栏目；`--per-role 4` 可增加各栏摘录。输出放在材料目录之外。手写解释或跨论文综合时，用下方的 compose 工作流。
+
 沿论文实际章节写出研究问题、数据、方法、结果及限制。每个关键数值带研究对象、条件和原文位置。将作者的解释、读者的推断和原文观察分别标出。
 
 先用 `python3 "$S/scripts/casework.py" index --input /input --work /app/work` 生成 sources.json。证据用实际 id 和原文 quote 对应。下面使用示例文件名。

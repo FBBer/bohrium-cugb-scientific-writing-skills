@@ -38,19 +38,77 @@ def regions(page):
     for line in page["lines"] + page.get("marginalia", []):
         yield line["id"], line["bbox"], line.get("display_text", line["text"])
     for i,table in enumerate(page["tables"],1):
+        if "bbox" not in table:
+            continue
         yield f"p{page['page']}:t{i}", table["bbox"], f"表格 {i}"
+        for row, cells in enumerate(table.get("text_cells") or table.get("row_cells", []), 1):
+            values = table["rows"][row-1]
+            for col, box in enumerate(cells, 1):
+                if box and col <= len(values) and values[col-1]:
+                    yield f"p{page['page']}:t{i}:r{row}:c{col}", box, f"表 {i} · {row} 行 {col} 列 · {values[col-1]}"
     for i,box in enumerate(page["images"],1):
         yield f"p{page['page']}:i{i}", box, f"图像 {i}"
+
+
+def page_index(page, entries):
+    anchors = {key for key, _, _ in entries}
+    lines = page["lines"] + page.get("marginalia", [])
+    table_ids, covered, tables = set(), set(), []
+    clean = lambda value: " ".join(str(value or "").split())
+
+    def link(key, label):
+        return f'<a href="#{escape(key)}">{escape(str(label))}</a>'
+
+    for number, table in enumerate(page["tables"], 1):
+        key = f"p{page['page']}:t{number}"
+        if key not in anchors or not table.get("rows"):
+            continue
+        table_ids.add(key)
+        x0, y0, x1, y1 = table["bbox"]
+        values = {clean(v) for row in table["rows"] for v in row if v}
+        caption = table.get("caption") or f"表 {number}"
+        notes = table.get("footnotes") or []
+        for line in lines:
+            ax, ay, bx, by = line["bbox"]
+            text = clean(line.get("display_text", line["text"]))
+            if text in values and x0-2 <= (ax+bx)/2 <= x1+2 and y0-2 <= (ay+by)/2 <= y1+2:
+                covered.add(line["id"])
+            if text == clean(caption) and abs(by-y0) < 45:
+                covered.add(line["id"])
+            if any(text == clean(n["text"]) and abs(ay-n["bbox"][1]) < 3 for n in notes):
+                covered.add(line["id"])
+        html = [f'<div class="table-wrap"><table><caption>{link(key, caption)}</caption><tbody>']
+        for row, values in enumerate(table["rows"], 1):
+            html.append("<tr>")
+            for col, value in enumerate(values, 1):
+                cell = f"{key}:r{row}:c{col}"
+                table_ids.add(cell)
+                label = str(value) if value is not None else ""
+                if not label:
+                    html.append('<td aria-label="原表留空"></td>')
+                else:
+                    html.append("<td>" + (link(cell, label) if cell in anchors else escape(label)) + "</td>")
+            html.append("</tr>")
+        html.append("</tbody></table>")
+        html.extend(f'<p>{escape(n["text"])}</p>' for n in notes)
+        tables.append("".join(html) + "</div>")
+    other = [link(key, label) for key, _, label in entries if key not in table_ids and key not in covered]
+    if other:
+        tables.append("<ol>" + "".join(f"<li>{item}</li>" for item in other) + "</ol>")
+    return '<div class="index">' + "".join(tables) + "</div>"
 
 
 STYLE = """body{margin:0;font:17px/1.5 system-ui,sans-serif;color:#000;background:#fff}
 main{max-width:1300px;margin:auto;padding:1rem 3vw}h1{font-size:1.65rem;overflow-wrap:anywhere}
 .spread{display:grid;grid-template-columns:minmax(0,3fr) minmax(15rem,2fr);gap:2rem;align-items:start;margin-bottom:3rem}
-svg{width:100%;height:auto;border:1px solid #777}.mark{fill:none;stroke:none}
-.mark:target{fill:#f2c446;fill-opacity:.26;stroke:#000;stroke-width:2;vector-effect:non-scaling-stroke}
-ol{padding-left:2rem;margin-top:0;max-height:80vh;overflow:auto}li{margin:0 0 .45rem}
-a{color:#000;text-underline-offset:.15em}a:hover,a:focus{background:#f6dc85}
-@media(max-width:700px){.spread{grid-template-columns:1fr;gap:1rem}ol{max-height:45vh}}"""
+svg{width:100%;height:auto;border:1px solid #000}.mark{fill:none;stroke:none}
+.mark:target{fill:#ce8a20;fill-opacity:.40;stroke:#000;stroke-width:2;vector-effect:non-scaling-stroke}
+.index{max-height:80vh;overflow:auto}.table-wrap{overflow-x:auto;margin:0 0 1.4rem}
+table{border-collapse:collapse;width:max-content;max-width:100%}caption{text-align:left;font-weight:650;margin:0 0 .65rem}
+td{padding:.35rem .8rem;border-bottom:1px solid #000;text-align:left}td:first-child{padding-left:0}
+.table-wrap p{margin:.65rem 0 0}ol{padding-left:2rem;margin-top:0}li{margin:0 0 .45rem}
+a{color:#000;text-underline-offset:.15em}a:hover,a:focus{background:#dba94e}
+@media(max-width:700px){.spread{grid-template-columns:1fr;gap:1rem}.index{max-height:none}}"""
 
 
 def export(pdf, layout, out, spec=None):
@@ -87,10 +145,7 @@ def export(pdf, layout, out, spec=None):
                 for anchor,box,_ in entries:
                     x,y,right,bottom = box
                     stream.write(f'<rect class="mark" id="{escape(anchor)}" x="{x}" y="{y}" width="{max(0,right-x)}" height="{max(0,bottom-y)}"/>')
-                stream.write("</svg><ol>")
-                for anchor,_,label in entries:
-                    stream.write(f'<li><a href="#{escape(anchor)}">{escape(label)}</a></li>')
-                stream.write("</ol></div></section>")
+                stream.write("</svg>" + page_index(record, entries) + "</div></section>")
             stream.write("</main></html>\n")
         os.replace(filename,out)
     finally:
