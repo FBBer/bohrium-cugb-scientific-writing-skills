@@ -37,3 +37,9 @@ done({"notes":"notes.md","coverage":report["sections"]},[evidence(idx,s) for s i
 
 from subprocess import run as run_view
 run_view([sys.executable, str(ROOT / "scripts/view.py"), str(result / "notes.md"), str(result / "reading.html")], check=True)
+
+from notebook import render as read_papers
+from shutil import copytree
+materials = copytree(ROOT / "examples/river", out / "river-materials", dirs_exist_ok=True)
+read_papers(materials, out / "river-notes", ["river-stage.md"], [], 3, "zh", ["river-stage.md=readings.tsv"])
+print("River notebook:", out / "river-notes/notebook.html")

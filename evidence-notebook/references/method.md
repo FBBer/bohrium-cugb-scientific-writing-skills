@@ -31,3 +31,5 @@ Word 原生分式按分子和分母线性表达，上下标保留。附注使用
 双栏 PDF 首选 PyMuPDF，按栏和跨栏区块整理。没有 PyMuPDF 时，可用 Poppler 的 pdftotext 或 pypdf 提取文本。Word 标题从文档的样式与层级读取。扫描页没有文字层时保留页号，须另做 OCR 或人工核对。索引中的字符位置使用 Unicode 码点，右端不含；PDF 的页为物理页码，B 为页内源区块。近邻条件只在同一小节内绑定；复杂叙述、图表和远距离限定需要沿原文或作者计划核对。CSV/TSV 表格需原始列名唯一，用多个筛选字段仍有多行时保留全部候选。
 
 普通文本、Word 和表格使用 Python 3.9 或更新版本的标准库。PDF 分栏实测使用 PyMuPDF；可用 python3 -m pip install PyMuPDF 安装。阅读页离线可用，和原材料保持相对目录关系即可从笔记打开原件。
+
+多篇材料的读取范围在 coverage.json 中按原文件相对路径列出。每篇的 status 可取 read、partial、unreadable。issues 中的 p2 指原 PDF 的物理第 2 页。显示为“原表留空”的格在该行确实存在，“行中缺列”表示这一列在原行中不存在。表格中的数字零按原文保留。comparison.tsv 的条件锚点可对应 reading-cards.json 中同一篇论文的 notes[].anchor。没有明确配对的条件时，数组为空。

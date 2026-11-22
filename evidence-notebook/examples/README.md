@@ -12,7 +12,7 @@
 python3 examples/demo.py ./my-example
 ```
 
-用浏览器打开 `my-example/output/reading.html` 阅读结果。输入样例在 `my-example/input/`，准备好的中间材料在 `my-example/work/`。
+打开 `my-example/river-notes/notebook.html` 阅读水尺观测。页首可比较两处同为 0.7 cm 的读数及其各自的水情，页底可打开原文、章节笔记和论文对照表。`my-example/output/reading.html` 展示另一份按作者提纲整理的笔记，其输入和提纲分别在 `my-example/input/` 和 `my-example/work/`。
 
 ## 换成自己的材料
 

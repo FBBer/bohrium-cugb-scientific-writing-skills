@@ -29,4 +29,4 @@ def body(source):
     return "".join(sections)
 
 if __name__ == "__main__":
-    cli(TITLE, body)
+    cli(TITLE, body, "章节笔记", (("paper-cards.json", "论文卡片"), ("topic-index.json", "主题索引")))

@@ -14,7 +14,9 @@ S=/skills/weekly-skill
 python3 "$S/scripts/notebook.py" /input /app/work/notebook --paper 实际论文.pdf
 ```
 
-打开 notebook.html，按原章节阅读，点段落位置看带高亮的原句。PDF 可从该处打开原页。notes.md 用于继续写作，study-matrix.tsv 可导入表格，reading-cards.json 和 comparison.tsv 保留字段、引句及位置。要优先摘录含有指定关键词的原句，可以多次使用 --focus。--per-role 限制跨论文矩阵每栏的条数，独立小节仍保留代表性内容。
+打开 notebook.html。若论文明确给出了适用条件，页首将发现、条件和原章节并排展示。点一句发现或条件可以回到相应段落，展开“原文”可看原句和 PDF 原页。页底可打开论文、Markdown 笔记和跨论文对照表。可多次使用 --focus 指定关键词。--per-role 控制每个比较字段的条数，正文仍按原章节保留代表性段落。
+
+制作多篇笔记可重复使用 --paper。coverage.json 同时记录整批和单篇的阅读范围。整批状态 complete 表示所选论文均可摘录，partial 表示部分文件或页有读取限制，unreadable 表示没有提取到正文。扫描页和加密文件在阅读页列出实际文件和可用页码，其他论文仍能继续整理。若全为不可读材料，命令退出码为 2，仍写出阅读范围与原文入口。文件名或附表声明写错时，可以修正参数后重跑。
 
 同一读数可能出现在不同地点。查找时带上章节或条件，保留不同小节的重复观察。给定明确的随文表格，可用 --table '论文文件=表格文件' 连接 CSV 或 TSV。看数值时要带上原行、列头与单位，重复观测按测次区分。示例使用自拟的水尺记录。
 
@@ -24,7 +26,7 @@ python3 scripts/recall.py river-notes search '0.7' --section 上游浅滩 --role
 python3 scripts/recall.py river-notes table readings.tsv --where 测站=深槽 --where 水情=退水 --where 测次=2 --field '偏差 (cm)'
 ```
 
-把找到的结果写进题目要求的字段。recall 的 --originals 参数可同时核对原文件版本。图像扫描页、文本层损坏、公式或原作者未交代的因果关系，需要回到相应原页阅读。只有能指回原文的内容才作为论文结论。
+把找到的结果写进题目要求的字段。recall 的 --originals 参数可同时核对原文件版本。comparison.tsv 的末四列记录本条锚点和关联条件的锚点、原句、位置，三个条件字段均为 JSON 数组。Markdown 与跨论文表也保留了条件关系。读者推断、暂缺的数据以及需要查图或 OCR 的页码应单独说明。
 
 ## 撰写自己的解释与跨论文比较
 
