@@ -1,0 +1,77 @@
+[
+  {
+    "id": "first",
+    "type": "article-journal",
+    "title": "Tidal records at Delta Gauge",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Lo",
+        "given": "Ming"
+      }
+    ],
+    "DOI": "10.1234/gauge.a"
+  },
+  {
+    "id": "second",
+    "type": "article-journal",
+    "title": "Tidal records at Delta Gauge",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Lo",
+        "given": "Ming"
+      }
+    ],
+    "DOI": "10.1234/gauge.b"
+  },
+  {
+    "id": "unlabelled",
+    "type": "article-journal",
+    "title": "Tidal records at Delta Gauge",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Lo",
+        "given": "Ming"
+      }
+    ]
+  },
+  {
+    "id": "first-copy",
+    "type": "article-journal",
+    "title": "Tidal records at Delta Gauge",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Lo",
+        "given": "Ming"
+      }
+    ],
+    "DOI": "https://doi.org/10.1234/gauge.a"
+  }
+]

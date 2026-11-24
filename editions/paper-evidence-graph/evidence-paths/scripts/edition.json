@@ -1,0 +1,5 @@
+{
+  "mode": "evidence-paths",
+  "title": "逐跳证据路径",
+  "requires_plan": true
+}

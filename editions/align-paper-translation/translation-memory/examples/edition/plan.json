@@ -1,0 +1,40 @@
+{
+  "manuscript_title": "River Stage at the floodplain",
+  "source_lang": "en",
+  "target_lang": "zh",
+  "rows": [
+    {
+      "id": "s1",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under winter conditions, the gauge measured 12 cm at the floodplain."
+        }
+      ],
+      "target": "冬季条件下，水位计的读数为 12 cm。",
+      "decision": "保留观测条件与量纲。"
+    },
+    {
+      "id": "s2",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "The reference gauge recorded 18 cm at the floodplain."
+        }
+      ],
+      "target": "参考水位计在同一地点测得 18 cm。",
+      "decision": "明确独立的参考读数。"
+    },
+    {
+      "id": "s3",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Only the winter condition was observed; the river stage outside that condition was not measured."
+        }
+      ],
+      "target": "仅观测了冬季条件，其他条件下的河流水位没有测量。",
+      "decision": "两处限定均保留。"
+    }
+  ]
+}

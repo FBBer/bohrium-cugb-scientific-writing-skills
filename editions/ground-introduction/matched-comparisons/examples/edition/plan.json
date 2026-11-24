@@ -1,0 +1,34 @@
+{
+  "manuscript_title": "River Stage at the floodplain",
+  "rows": [
+    {
+      "id": "comparison",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under winter conditions, the gauge measured 12 cm at the floodplain."
+        },
+        {
+          "source": "reference.md",
+          "quote": "The comparison uses a reference gauge at the same floodplain."
+        }
+      ],
+      "text": "Both protocols concern the floodplain. The field record gives 12 cm, while the separate reference checks the instrument in that setting.",
+      "axis": "Measurement setting",
+      "common": "floodplain",
+      "difference": "The field observation and the separate reference use distinct instruments.",
+      "section": "Research context",
+      "gap": "The earlier protocol recorded river stage at the floodplain only under winter conditions.",
+      "response": "We report a bounded measurement of 12 cm.",
+      "boundary": "Only the winter condition was observed; the river stage outside that condition was not measured.",
+      "period": "Reference protocol",
+      "year": 2023,
+      "change": "The comparison uses a reference gauge at the same floodplain.",
+      "scope": "winter",
+      "covered": "The comparison uses a reference gauge at the same floodplain.",
+      "missing": "Only the winter condition was observed; the river stage outside that condition was not measured.",
+      "role": "Establish context",
+      "audience": "researchers"
+    }
+  ]
+}

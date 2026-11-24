@@ -1,0 +1,5 @@
+{
+  "mode": "replicate-hierarchy",
+  "title": "独立样本与复测分层",
+  "requires_plan": true
+}

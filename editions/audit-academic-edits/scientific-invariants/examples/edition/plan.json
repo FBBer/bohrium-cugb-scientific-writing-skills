@@ -1,0 +1,35 @@
+{
+  "manuscript_title": "River Stage at the floodplain",
+  "protected": [
+    "cm",
+    "gauge"
+  ],
+  "rows": [
+    {
+      "id": "rev-a",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under winter conditions, the gauge measured 12 cm at the floodplain."
+        }
+      ],
+      "revision": "At the floodplain, the gauge measured 12 cm under winter conditions.",
+      "reason": "Keep the observation and unit together.",
+      "purpose": "Observation",
+      "accept": true
+    },
+    {
+      "id": "rev-b",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Only the winter condition was observed; the river stage outside that condition was not measured."
+        }
+      ],
+      "revision": "The observations cover only the winter condition.",
+      "reason": "Preserve the limit on extrapolation.",
+      "purpose": "Scope",
+      "accept": false
+    }
+  ]
+}

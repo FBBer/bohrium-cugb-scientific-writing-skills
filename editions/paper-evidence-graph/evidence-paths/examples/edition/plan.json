@@ -1,0 +1,56 @@
+{
+  "manuscript_title": "River Stage at the floodplain",
+  "rows": [
+    {
+      "id": "installation",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under winter conditions, the gauge measured 12 cm at the floodplain."
+        }
+      ],
+      "subject": "gauge",
+      "relation": "installed at",
+      "object": "floodplain",
+      "scope": "winter",
+      "polarity": "positive",
+      "date": "2025-01-01",
+      "until": "2025-06-30"
+    },
+    {
+      "id": "experiment",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "The method records river stage with a gauge."
+        }
+      ],
+      "subject": "Experiment",
+      "relation": "uses",
+      "object": "gauge",
+      "scope": "winter",
+      "polarity": "positive",
+      "date": "2025-02-01"
+    },
+    {
+      "id": "replication",
+      "evidence": [
+        {
+          "source": "reference.md",
+          "quote": "The comparison uses a reference gauge at the same floodplain."
+        }
+      ],
+      "subject": "Reference",
+      "relation": "uses",
+      "object": "gauge",
+      "scope": "winter",
+      "polarity": "positive"
+    }
+  ],
+  "query": {
+    "from": "Experiment",
+    "to": "floodplain",
+    "node": "gauge",
+    "date": "2025-04-01"
+  }
+}

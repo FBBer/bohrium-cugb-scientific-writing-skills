@@ -1,0 +1,18 @@
+{
+  "manuscript_title": "River Stage at the floodplain",
+  "rows": [
+    {
+      "id": "n1",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under winter conditions, the gauge measured 12 cm at the floodplain."
+        }
+      ],
+      "subject": "gauge",
+      "relation": "records",
+      "object": "river stage",
+      "text": "Under winter conditions, the gauge measured 12 cm at the floodplain."
+    }
+  ]
+}

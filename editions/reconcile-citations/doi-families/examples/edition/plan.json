@@ -1,0 +1,60 @@
+{
+  "manuscript_title": "River Stage at the floodplain",
+  "bibliographies": [
+    "references.txt"
+  ],
+  "rows": [
+    {
+      "id": "one",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "Ada Lin. River Stage at the floodplain. 2023. doi:10.5555/demo.12."
+        }
+      ],
+      "key": "Lin12",
+      "title": "River Stage",
+      "authors": [
+        "Lin, Ada"
+      ],
+      "year": "2023",
+      "text": "Ada Lin. River Stage at the floodplain. 2023. doi:10.5555/demo.12.",
+      "supports": [
+        "Chen18"
+      ],
+      "scope": "winter"
+    },
+    {
+      "id": "duplicate",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "A. Lin. River Stage (catalogue variant). 2023. https://doi.org/10.5555/demo.12."
+        }
+      ],
+      "key": "LinAlt",
+      "title": "River Stage (catalogue variant)",
+      "authors": [
+        "Lin, A."
+      ],
+      "year": "2023",
+      "text": "A. Lin. River Stage (catalogue variant). 2023. https://doi.org/10.5555/demo.12."
+    },
+    {
+      "id": "two",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "Bo Chen. Reference gauge observations. 2024. doi:10.5555/demo.18."
+        }
+      ],
+      "key": "Chen18",
+      "title": "Reference gauge observations",
+      "authors": [
+        "Chen, Bo"
+      ],
+      "year": "2024",
+      "text": "Bo Chen. Reference gauge observations. 2024. doi:10.5555/demo.18."
+    }
+  ]
+}

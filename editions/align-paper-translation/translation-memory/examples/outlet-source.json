@@ -1,0 +1,23 @@
+{
+  "segments": [
+    {
+      "id": "outlets",
+      "location": "Results, paragraph 1",
+      "text": "North outlet yielded 3 mV and South outlet yielded 9 mV [2]."
+    },
+    {
+      "id": "parallel",
+      "location": "Results, paragraph 2",
+      "text": "North outlet and South outlet yielded 4 mV and 7 mV, respectively."
+    }
+  ],
+  "glossary": {
+    "North outlet": "北口",
+    "South outlet": {
+      "target": "南口",
+      "accepted": [
+        "南侧出口"
+      ]
+    }
+  }
+}
