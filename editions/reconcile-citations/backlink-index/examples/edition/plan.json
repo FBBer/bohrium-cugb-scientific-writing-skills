@@ -1,0 +1,60 @@
+{
+  "manuscript_title": "Beam Deflection at the support span",
+  "bibliographies": [
+    "references.txt"
+  ],
+  "rows": [
+    {
+      "id": "one",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "Ada Lin. Beam Deflection at the support span. 2023. doi:10.5555/demo.13."
+        }
+      ],
+      "key": "Lin13",
+      "title": "Beam Deflection",
+      "authors": [
+        "Lin, Ada"
+      ],
+      "year": "2023",
+      "text": "Ada Lin. Beam Deflection at the support span. 2023. doi:10.5555/demo.13.",
+      "supports": [
+        "Chen19"
+      ],
+      "scope": "dry"
+    },
+    {
+      "id": "duplicate",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "A. Lin. Beam Deflection (catalogue variant). 2023. https://doi.org/10.5555/demo.13."
+        }
+      ],
+      "key": "LinAlt",
+      "title": "Beam Deflection (catalogue variant)",
+      "authors": [
+        "Lin, A."
+      ],
+      "year": "2023",
+      "text": "A. Lin. Beam Deflection (catalogue variant). 2023. https://doi.org/10.5555/demo.13."
+    },
+    {
+      "id": "two",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "Bo Chen. Reference probe observations. 2024. doi:10.5555/demo.19."
+        }
+      ],
+      "key": "Chen19",
+      "title": "Reference probe observations",
+      "authors": [
+        "Chen, Bo"
+      ],
+      "year": "2024",
+      "text": "Bo Chen. Reference probe observations. 2024. doi:10.5555/demo.19."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "manuscript_title": "Beam Deflection at the support span",
+  "rows": [
+    {
+      "id": "n1",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under dry conditions, the probe measured 13 mm at the support span."
+        }
+      ],
+      "subject": "probe",
+      "relation": "records",
+      "object": "beam deflection",
+      "text": "Under dry conditions, the probe measured 13 mm at the support span.",
+      "value": 13,
+      "unit": "mm"
+    }
+  ]
+}

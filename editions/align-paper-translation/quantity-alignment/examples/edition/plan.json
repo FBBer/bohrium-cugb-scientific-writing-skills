@@ -1,0 +1,40 @@
+{
+  "manuscript_title": "Beam Deflection at the support span",
+  "source_lang": "en",
+  "target_lang": "zh",
+  "rows": [
+    {
+      "id": "s1",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under dry conditions, the probe measured 13 mm at the support span."
+        }
+      ],
+      "target": "干燥条件下，位移探针的读数为 13 mm。",
+      "decision": "保留观测条件与量纲。"
+    },
+    {
+      "id": "s2",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "The reference probe recorded 19 mm at the support span."
+        }
+      ],
+      "target": "参考位移探针在同一地点测得 19 mm。",
+      "decision": "明确独立的参考读数。"
+    },
+    {
+      "id": "s3",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Only the dry condition was observed; the beam deflection outside that condition was not measured."
+        }
+      ],
+      "target": "仅观测了干燥条件，其他条件下的梁挠度没有测量。",
+      "decision": "两处限定均保留。"
+    }
+  ]
+}

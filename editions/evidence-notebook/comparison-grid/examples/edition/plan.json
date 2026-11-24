@@ -1,0 +1,41 @@
+{
+  "manuscript_title": "Beam Deflection at the support span",
+  "rows": [
+    {
+      "id": "A",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under dry conditions, the probe measured 13 mm at the support span."
+        }
+      ],
+      "study": "Field",
+      "dimension": "Reading",
+      "text": "13 mm, dry."
+    },
+    {
+      "id": "B",
+      "evidence": [
+        {
+          "source": "reference.md",
+          "quote": "The erratum revised the reference reading to 19 mm."
+        }
+      ],
+      "study": "Reference",
+      "dimension": "Reading",
+      "text": "19 mm after correction."
+    },
+    {
+      "id": "B-scope",
+      "evidence": [
+        {
+          "source": "reference.md",
+          "quote": "The earlier protocol recorded beam deflection at the support span only under dry conditions."
+        }
+      ],
+      "study": "Reference",
+      "dimension": "Coverage",
+      "text": "The earlier protocol recorded beam deflection at the support span only under dry conditions."
+    }
+  ]
+}

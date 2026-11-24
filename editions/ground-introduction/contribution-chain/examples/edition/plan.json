@@ -1,0 +1,34 @@
+{
+  "manuscript_title": "Beam Deflection at the support span",
+  "rows": [
+    {
+      "id": "comparison",
+      "evidence": [
+        {
+          "source": "reference.md",
+          "quote": "The earlier protocol recorded beam deflection at the support span only under dry conditions."
+        },
+        {
+          "source": "study.md",
+          "quote": "Under dry conditions, the probe measured 13 mm at the support span."
+        }
+      ],
+      "text": "Earlier work covered the dry condition. Our record adds the observed 13 mm at the support span; other conditions remain open.",
+      "axis": "Measurement setting",
+      "common": "support span",
+      "difference": "The field observation and the separate reference use distinct instruments.",
+      "section": "Research context",
+      "gap": "The earlier protocol recorded beam deflection at the support span only under dry conditions.",
+      "response": "We report a bounded measurement of 13 mm.",
+      "boundary": "Only the dry condition was observed; the beam deflection outside that condition was not measured.",
+      "period": "Reference protocol",
+      "year": 2023,
+      "change": "The comparison uses a reference probe at the same support span.",
+      "scope": "dry",
+      "covered": "The comparison uses a reference probe at the same support span.",
+      "missing": "Only the dry condition was observed; the beam deflection outside that condition was not measured.",
+      "role": "Establish context",
+      "audience": "researchers"
+    }
+  ]
+}

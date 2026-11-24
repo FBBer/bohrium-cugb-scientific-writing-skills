@@ -1,0 +1,56 @@
+{
+  "manuscript_title": "Beam Deflection at the support span",
+  "rows": [
+    {
+      "id": "installation",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under dry conditions, the probe measured 13 mm at the support span."
+        }
+      ],
+      "subject": "probe",
+      "relation": "installed at",
+      "object": "support span",
+      "scope": "dry",
+      "polarity": "positive",
+      "date": "2025-01-01",
+      "until": "2025-06-30"
+    },
+    {
+      "id": "experiment",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "The method records beam deflection with a probe."
+        }
+      ],
+      "subject": "Experiment",
+      "relation": "uses",
+      "object": "probe",
+      "scope": "dry",
+      "polarity": "positive",
+      "date": "2025-02-01"
+    },
+    {
+      "id": "replication",
+      "evidence": [
+        {
+          "source": "reference.md",
+          "quote": "The comparison uses a reference probe at the same support span."
+        }
+      ],
+      "subject": "Reference",
+      "relation": "uses",
+      "object": "probe",
+      "scope": "dry",
+      "polarity": "positive"
+    }
+  ],
+  "query": {
+    "from": "Experiment",
+    "to": "support span",
+    "node": "probe",
+    "date": "2025-04-01"
+  }
+}
