@@ -1,0 +1,96 @@
+{
+  "manuscript_title": "Pendulum Period at the small-angle rig",
+  "rows": [
+    {
+      "id": "run1",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "15 s were recorded over 1 passes."
+        }
+      ],
+      "text": "15 s were recorded over 1 passes.",
+      "section": "Acquisition",
+      "run": "run1",
+      "condition": "quiet",
+      "unit_id": "A",
+      "repeat": 1,
+      "settings": {
+        "reading": 15,
+        "unit": "s"
+      },
+      "stage": "Acquisition 1",
+      "entered": 15,
+      "excluded": 1,
+      "reason": "One calibration pass",
+      "metric": "Readings per pass",
+      "numerator": 15,
+      "denominator": 1,
+      "unit": "s",
+      "after": []
+    },
+    {
+      "id": "run2",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "15 s were recorded over 2 passes."
+        }
+      ],
+      "text": "15 s were recorded over 2 passes.",
+      "section": "Acquisition",
+      "run": "run2",
+      "condition": "quiet",
+      "unit_id": "A",
+      "repeat": 2,
+      "settings": {
+        "reading": 15,
+        "unit": "s"
+      },
+      "stage": "Acquisition 2",
+      "entered": 15,
+      "excluded": 1,
+      "reason": "One calibration pass",
+      "metric": "Readings per pass",
+      "numerator": 15,
+      "denominator": 2,
+      "unit": "s",
+      "after": [
+        "run1"
+      ]
+    },
+    {
+      "id": "run3",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "21 s were recorded over 1 passes."
+        }
+      ],
+      "text": "21 s were recorded over 1 passes.",
+      "section": "Acquisition",
+      "run": "run3",
+      "condition": "quiet",
+      "unit_id": "B",
+      "repeat": 1,
+      "settings": {
+        "reading": 21,
+        "unit": "s"
+      },
+      "stage": "Acquisition 3",
+      "entered": 21,
+      "excluded": 1,
+      "reason": "One calibration pass",
+      "metric": "Readings per pass",
+      "numerator": 21,
+      "denominator": 1,
+      "unit": "s",
+      "after": [
+        "run2"
+      ]
+    }
+  ],
+  "defaults": {
+    "unit": "s"
+  }
+}

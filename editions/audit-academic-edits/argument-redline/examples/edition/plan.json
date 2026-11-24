@@ -1,0 +1,35 @@
+{
+  "manuscript_title": "Pendulum Period at the small-angle rig",
+  "protected": [
+    "s",
+    "timer"
+  ],
+  "rows": [
+    {
+      "id": "rev-a",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under quiet conditions, the timer measured 15 s at the small-angle rig."
+        }
+      ],
+      "revision": "At the small-angle rig, the timer measured 15 s under quiet conditions.",
+      "reason": "Keep the observation and unit together.",
+      "purpose": "Observation",
+      "accept": true
+    },
+    {
+      "id": "rev-b",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Only the quiet condition was observed; the pendulum period outside that condition was not measured."
+        }
+      ],
+      "revision": "The observations cover only the quiet condition.",
+      "reason": "Preserve the limit on extrapolation.",
+      "purpose": "Scope",
+      "accept": false
+    }
+  ]
+}

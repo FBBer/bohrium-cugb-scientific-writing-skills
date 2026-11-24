@@ -1,0 +1,34 @@
+{
+  "manuscript_title": "Pendulum Period at the small-angle rig",
+  "rows": [
+    {
+      "id": "comparison",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under quiet conditions, the timer measured 15 s at the small-angle rig."
+        },
+        {
+          "source": "reference.md",
+          "quote": "The comparison uses a reference timer at the same small-angle rig."
+        }
+      ],
+      "text": "Both protocols concern the small-angle rig. The field record gives 15 s, while the separate reference checks the instrument in that setting.",
+      "axis": "Measurement setting",
+      "common": "small-angle rig",
+      "difference": "The field observation and the separate reference use distinct instruments.",
+      "section": "Research context",
+      "gap": "The earlier protocol recorded pendulum period at the small-angle rig only under quiet conditions.",
+      "response": "We report a bounded measurement of 15 s.",
+      "boundary": "Only the quiet condition was observed; the pendulum period outside that condition was not measured.",
+      "period": "Reference protocol",
+      "year": 2023,
+      "change": "The comparison uses a reference timer at the same small-angle rig.",
+      "scope": "quiet",
+      "covered": "The comparison uses a reference timer at the same small-angle rig.",
+      "missing": "Only the quiet condition was observed; the pendulum period outside that condition was not measured.",
+      "role": "Establish context",
+      "audience": "researchers"
+    }
+  ]
+}

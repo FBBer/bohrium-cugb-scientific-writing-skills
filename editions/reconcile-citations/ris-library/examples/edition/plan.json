@@ -1,0 +1,60 @@
+{
+  "manuscript_title": "Pendulum Period at the small-angle rig",
+  "bibliographies": [
+    "references.txt"
+  ],
+  "rows": [
+    {
+      "id": "one",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "Ada Lin. Pendulum Period at the small-angle rig. 2023. doi:10.5555/demo.15."
+        }
+      ],
+      "key": "Lin15",
+      "title": "Pendulum Period",
+      "authors": [
+        "Lin, Ada"
+      ],
+      "year": "2023",
+      "text": "Ada Lin. Pendulum Period at the small-angle rig. 2023. doi:10.5555/demo.15.",
+      "supports": [
+        "Chen21"
+      ],
+      "scope": "quiet"
+    },
+    {
+      "id": "duplicate",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "A. Lin. Pendulum Period (catalogue variant). 2023. https://doi.org/10.5555/demo.15."
+        }
+      ],
+      "key": "LinAlt",
+      "title": "Pendulum Period (catalogue variant)",
+      "authors": [
+        "Lin, A."
+      ],
+      "year": "2023",
+      "text": "A. Lin. Pendulum Period (catalogue variant). 2023. https://doi.org/10.5555/demo.15."
+    },
+    {
+      "id": "two",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "Bo Chen. Reference timer observations. 2024. doi:10.5555/demo.21."
+        }
+      ],
+      "key": "Chen21",
+      "title": "Reference timer observations",
+      "authors": [
+        "Chen, Bo"
+      ],
+      "year": "2024",
+      "text": "Bo Chen. Reference timer observations. 2024. doi:10.5555/demo.21."
+    }
+  ]
+}
