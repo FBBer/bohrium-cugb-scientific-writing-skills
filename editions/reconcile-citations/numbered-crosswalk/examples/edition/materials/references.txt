@@ -1,0 +1,3 @@
+Ada Lin. Temperature Drift at the heated chamber. 2023. doi:10.5555/demo.14.
+A. Lin. Temperature Drift (catalogue variant). 2023. https://doi.org/10.5555/demo.14.
+Bo Chen. Reference sensor observations. 2024. doi:10.5555/demo.20.

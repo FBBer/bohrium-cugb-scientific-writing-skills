@@ -1,0 +1,32 @@
+{
+  "manuscript_title": "Temperature Drift at the heated chamber",
+  "rows": [
+    {
+      "id": "n1",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under steady conditions, the sensor measured 14 K at the heated chamber."
+        }
+      ],
+      "subject": "sensor",
+      "relation": "records",
+      "object": "temperature drift",
+      "text": "Under steady conditions, the sensor measured 14 K at the heated chamber."
+    },
+    {
+      "id": "n2",
+      "evidence": [
+        {
+          "source": "reference.md",
+          "quote": "The erratum revised the reference reading to 20 K."
+        }
+      ],
+      "subject": "reference sensor",
+      "relation": "revised reading for",
+      "object": "temperature drift",
+      "text": "The erratum revised the reference reading to 20 K.",
+      "revises": "n1"
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "manuscript_title": "Temperature Drift at the heated chamber",
+  "bibliographies": [
+    "references.txt"
+  ],
+  "rows": [
+    {
+      "id": "one",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "Ada Lin. Temperature Drift at the heated chamber. 2023. doi:10.5555/demo.14."
+        }
+      ],
+      "key": "Lin14",
+      "title": "Temperature Drift",
+      "authors": [
+        "Lin, Ada"
+      ],
+      "year": "2023",
+      "text": "Ada Lin. Temperature Drift at the heated chamber. 2023. doi:10.5555/demo.14.",
+      "supports": [
+        "Chen20"
+      ],
+      "scope": "steady"
+    },
+    {
+      "id": "duplicate",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "A. Lin. Temperature Drift (catalogue variant). 2023. https://doi.org/10.5555/demo.14."
+        }
+      ],
+      "key": "LinAlt",
+      "title": "Temperature Drift (catalogue variant)",
+      "authors": [
+        "Lin, A."
+      ],
+      "year": "2023",
+      "text": "A. Lin. Temperature Drift (catalogue variant). 2023. https://doi.org/10.5555/demo.14."
+    },
+    {
+      "id": "two",
+      "evidence": [
+        {
+          "source": "references.txt",
+          "quote": "Bo Chen. Reference sensor observations. 2024. doi:10.5555/demo.20."
+        }
+      ],
+      "key": "Chen20",
+      "title": "Reference sensor observations",
+      "authors": [
+        "Chen, Bo"
+      ],
+      "year": "2024",
+      "text": "Bo Chen. Reference sensor observations. 2024. doi:10.5555/demo.20."
+    }
+  ]
+}

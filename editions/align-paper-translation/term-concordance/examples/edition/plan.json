@@ -1,0 +1,44 @@
+{
+  "manuscript_title": "Temperature Drift at the heated chamber",
+  "source_lang": "en",
+  "target_lang": "zh",
+  "rows": [
+    {
+      "id": "s1",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under steady conditions, the sensor measured 14 K at the heated chamber."
+        }
+      ],
+      "target": "稳态条件下，传感器的读数为 14 K。",
+      "decision": "保留观测条件与量纲。"
+    },
+    {
+      "id": "s2",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "The reference sensor recorded 20 K at the heated chamber."
+        }
+      ],
+      "target": "参考传感器在同一地点测得 20 K。",
+      "decision": "明确独立的参考读数。"
+    },
+    {
+      "id": "s3",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Only the steady condition was observed; the temperature drift outside that condition was not measured."
+        }
+      ],
+      "target": "仅观测了稳态条件，其他条件下的温度漂移没有测量。",
+      "decision": "两处限定均保留。"
+    }
+  ],
+  "glossary": {
+    "sensor": "传感器",
+    "temperature drift": "温度漂移"
+  }
+}

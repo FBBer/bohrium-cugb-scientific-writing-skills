@@ -1,0 +1,34 @@
+{
+  "manuscript_title": "Temperature Drift at the heated chamber",
+  "rows": [
+    {
+      "id": "comparison",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under steady conditions, the sensor measured 14 K at the heated chamber."
+        },
+        {
+          "source": "reference.md",
+          "quote": "The comparison uses a reference sensor at the same heated chamber."
+        }
+      ],
+      "text": "Both protocols concern the heated chamber. The field record gives 14 K, while the separate reference checks the instrument in that setting.",
+      "axis": "Measurement setting",
+      "common": "heated chamber",
+      "difference": "The field observation and the separate reference use distinct instruments.",
+      "section": "Research context",
+      "gap": "The earlier protocol recorded temperature drift at the heated chamber only under steady conditions.",
+      "response": "We report a bounded measurement of 14 K.",
+      "boundary": "Only the steady condition was observed; the temperature drift outside that condition was not measured.",
+      "period": "Reference protocol",
+      "year": 2023,
+      "change": "The comparison uses a reference sensor at the same heated chamber.",
+      "scope": "steady",
+      "covered": "The comparison uses a reference sensor at the same heated chamber.",
+      "missing": "Only the steady condition was observed; the temperature drift outside that condition was not measured.",
+      "role": "Establish context",
+      "audience": "researchers"
+    }
+  ]
+}

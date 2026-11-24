@@ -1,0 +1,8 @@
+{
+  "manuscript_title": "Temperature Drift at the heated chamber",
+  "table": "measurements.csv",
+  "caption": "Temperature Drift at heated chamber",
+  "symbols": [
+    "reading"
+  ]
+}

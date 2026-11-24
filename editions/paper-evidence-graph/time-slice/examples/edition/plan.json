@@ -1,0 +1,56 @@
+{
+  "manuscript_title": "Temperature Drift at the heated chamber",
+  "rows": [
+    {
+      "id": "installation",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Under steady conditions, the sensor measured 14 K at the heated chamber."
+        }
+      ],
+      "subject": "sensor",
+      "relation": "installed at",
+      "object": "heated chamber",
+      "scope": "steady",
+      "polarity": "positive",
+      "date": "2025-01-01",
+      "until": "2025-06-30"
+    },
+    {
+      "id": "experiment",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "The method records temperature drift with a sensor."
+        }
+      ],
+      "subject": "Experiment",
+      "relation": "uses",
+      "object": "sensor",
+      "scope": "steady",
+      "polarity": "positive",
+      "date": "2025-02-01"
+    },
+    {
+      "id": "replication",
+      "evidence": [
+        {
+          "source": "reference.md",
+          "quote": "The comparison uses a reference sensor at the same heated chamber."
+        }
+      ],
+      "subject": "Reference",
+      "relation": "uses",
+      "object": "sensor",
+      "scope": "steady",
+      "polarity": "positive"
+    }
+  ],
+  "query": {
+    "from": "Experiment",
+    "to": "heated chamber",
+    "node": "sensor",
+    "date": "2025-04-01"
+  }
+}

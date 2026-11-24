@@ -1,0 +1,96 @@
+{
+  "manuscript_title": "Temperature Drift at the heated chamber",
+  "rows": [
+    {
+      "id": "run1",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Acquisition 1: 14 samples entered and 1 calibration pass was excluded."
+        }
+      ],
+      "text": "Acquisition 1: 14 samples entered and 1 calibration pass was excluded.",
+      "section": "Acquisition",
+      "run": "run1",
+      "condition": "steady",
+      "unit_id": "A",
+      "repeat": 1,
+      "settings": {
+        "reading": 14,
+        "unit": "K"
+      },
+      "stage": "Acquisition 1",
+      "entered": 14,
+      "excluded": 1,
+      "reason": "One calibration pass",
+      "metric": "Readings per pass",
+      "numerator": 14,
+      "denominator": 1,
+      "unit": "K",
+      "after": []
+    },
+    {
+      "id": "run2",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Acquisition 2: 14 samples entered and 1 calibration pass was excluded."
+        }
+      ],
+      "text": "Acquisition 2: 14 samples entered and 1 calibration pass was excluded.",
+      "section": "Acquisition",
+      "run": "run2",
+      "condition": "steady",
+      "unit_id": "A",
+      "repeat": 2,
+      "settings": {
+        "reading": 14,
+        "unit": "K"
+      },
+      "stage": "Acquisition 2",
+      "entered": 14,
+      "excluded": 1,
+      "reason": "One calibration pass",
+      "metric": "Readings per pass",
+      "numerator": 14,
+      "denominator": 2,
+      "unit": "K",
+      "after": [
+        "run1"
+      ]
+    },
+    {
+      "id": "run3",
+      "evidence": [
+        {
+          "source": "study.md",
+          "quote": "Acquisition 3: 20 samples entered and 1 calibration pass was excluded."
+        }
+      ],
+      "text": "Acquisition 3: 20 samples entered and 1 calibration pass was excluded.",
+      "section": "Acquisition",
+      "run": "run3",
+      "condition": "steady",
+      "unit_id": "B",
+      "repeat": 1,
+      "settings": {
+        "reading": 20,
+        "unit": "K"
+      },
+      "stage": "Acquisition 3",
+      "entered": 20,
+      "excluded": 1,
+      "reason": "One calibration pass",
+      "metric": "Readings per pass",
+      "numerator": 20,
+      "denominator": 1,
+      "unit": "K",
+      "after": [
+        "run2"
+      ]
+    }
+  ],
+  "defaults": {
+    "unit": "K"
+  }
+}
