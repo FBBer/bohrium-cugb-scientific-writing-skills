@@ -1,0 +1,58 @@
+{
+  "title": "载荷试验的修订笔记",
+  "sections": [
+    {
+      "heading": "采样",
+      "notes": [
+        {
+          "id": "sample",
+          "before": {
+            "source": "report-v1.md",
+            "loc": "L2",
+            "quote": "The instrument sampled the plate every 2 s."
+          },
+          "current_source": "report-v2.md",
+          "note": "仪器每 2 秒读取一次板的位移。"
+        }
+      ]
+    },
+    {
+      "heading": "加载后的位移",
+      "notes": [
+        {
+          "id": "deflection",
+          "before": {
+            "source": "report-v1.md",
+            "loc": "L4",
+            "quote": "Run B reached 18 mm after loading."
+          },
+          "current_source": "report-v2.md",
+          "note": "B 次试验的位移为 18 mm。",
+          "replacement": {
+            "note": "重新校准后，B 次试验的位移为 15 mm。",
+            "evidence": {
+              "source": "report-v2.md",
+              "loc": "L5",
+              "quote": "After recalibration, run B reached 15 mm after loading."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "heading": "适用范围",
+      "notes": [
+        {
+          "id": "limit",
+          "before": {
+            "source": "report-v1.md",
+            "loc": "L6",
+            "quote": "Only one plate was tested."
+          },
+          "current_source": "report-v2.md",
+          "note": "试验只用了一块板。"
+        }
+      ]
+    }
+  ]
+}

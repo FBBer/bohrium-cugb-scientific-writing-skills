@@ -1,0 +1,14 @@
+{
+  "main": "main.tex",
+  "csv": "plate.csv",
+  "generated": "values.tex",
+  "places": 2,
+  "engine": "pdflatex",
+  "columns": {
+    "id": "id",
+    "label": "label",
+    "value": "estimate",
+    "uncertainty": "error",
+    "unit": "unit"
+  }
+}

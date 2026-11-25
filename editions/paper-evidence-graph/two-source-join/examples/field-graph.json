@@ -1,0 +1,89 @@
+{
+  "nodes": [
+    {
+      "id": "Gauge",
+      "label": "Gauge",
+      "type": "data"
+    },
+    {
+      "id": "Calibration",
+      "label": "Calibration",
+      "type": "method"
+    },
+    {
+      "id": "Water level",
+      "label": "Water level",
+      "type": "metric"
+    },
+    {
+      "id": "Bed level",
+      "label": "Bed level",
+      "type": "metric"
+    }
+  ],
+  "edges": [
+    {
+      "id": "r1",
+      "source": "Gauge",
+      "target": "Calibration",
+      "predicate": "uses",
+      "scope": "field",
+      "strength": "direct",
+      "polarity": "positive",
+      "evidence": [
+        {
+          "id": "a",
+          "quote": "The gauge uses this calibration."
+        }
+      ]
+    },
+    {
+      "id": "r2",
+      "source": "Calibration",
+      "target": "Water level",
+      "predicate": "estimates",
+      "scope": "field",
+      "strength": "direct",
+      "polarity": "positive",
+      "evidence": [
+        {
+          "id": "b",
+          "quote": "This calibration estimates water level."
+        },
+        {
+          "id": "c",
+          "quote": "The calibration estimates water level at the north site."
+        }
+      ]
+    },
+    {
+      "id": "r3",
+      "source": "Calibration",
+      "target": "Bed level",
+      "predicate": "estimates",
+      "scope": "field",
+      "strength": "direct",
+      "polarity": "positive",
+      "evidence": [
+        {
+          "id": "b",
+          "quote": "The calibration estimates bed level at the south site."
+        }
+      ]
+    }
+  ],
+  "anchors": {
+    "a": {
+      "source": "north.md",
+      "location": "L1"
+    },
+    "b": {
+      "source": "south.md",
+      "location": "L1"
+    },
+    "c": {
+      "source": "north.md",
+      "location": "L2"
+    }
+  }
+}

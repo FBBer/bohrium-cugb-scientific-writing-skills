@@ -1,0 +1,72 @@
+{
+  "title": "河边测站的晨间校准",
+  "source_language": "English",
+  "target_language": "中文",
+  "scope": [
+    {
+      "source": "field.md"
+    }
+  ],
+  "groups": [
+    {
+      "segments": [
+        [
+          "field.md",
+          "L1"
+        ],
+        [
+          "field.md",
+          "L2"
+        ]
+      ],
+      "target": [
+        "黎明前，测站人员校验了水准仪。",
+        "水平视线保持固定，河流水位却下降了 2 cm。"
+      ]
+    },
+    {
+      "segments": [
+        [
+          "field.md",
+          "L3"
+        ]
+      ],
+      "target": [
+        "记录到的漂移不超过 3 mm [4]。"
+      ]
+    },
+    {
+      "segments": [
+        [
+          "field.md",
+          "L4"
+        ]
+      ],
+      "target": [
+        "仅凭水位下降，无法断定存在渗漏。"
+      ]
+    }
+  ],
+  "glossary": [
+    {
+      "forms": [
+        "optical level"
+      ],
+      "target": "水准仪",
+      "groups": [
+        1
+      ]
+    },
+    {
+      "forms": [
+        "river level",
+        "falling level"
+      ],
+      "target": "水位",
+      "groups": [
+        1,
+        3
+      ]
+    }
+  ]
+}

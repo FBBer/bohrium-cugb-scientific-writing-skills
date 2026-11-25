@@ -1,0 +1,4 @@
+id,label,estimate,error,unit
+north,North plate,1.245,0.035,mm
+south,South plate,0.800,,mm
+zero,Zero plate,0.000,0.000,mm

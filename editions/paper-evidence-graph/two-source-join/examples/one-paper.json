@@ -1,0 +1,13 @@
+{
+  "question": "Which levels can be traced within one paper?",
+  "from": "Gauge",
+  "source_policy": "same",
+  "steps": [
+    {
+      "predicate": "uses"
+    },
+    {
+      "predicate": "estimates"
+    }
+  ]
+}

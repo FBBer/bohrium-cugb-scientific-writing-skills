@@ -1,0 +1,57 @@
+{
+  "title": "水准测站复测，读数改变了多少？",
+  "sections": [
+    {
+      "heading": "读数时间",
+      "claims": [
+        {
+          "text": "调平前后各读一次，配对单位为同一测站。",
+          "evidence": [
+            {
+              "source": "campaign.md",
+              "loc": "L2",
+              "quote": "The gauges were read immediately before and after levelling."
+            },
+            {
+              "source": "campaign.md",
+              "loc": "L3",
+              "quote": "The same station was used for each pair."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "资料缺口",
+      "claims": [
+        {
+          "text": "转录时遗失了一条调平后的记录。",
+          "evidence": [
+            {
+              "source": "campaign.md",
+              "loc": "L4",
+              "quote": "One post-levelling reading was lost during transfer."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "table": "stations.tsv",
+    "unit": "mm",
+    "arms": [
+      "before",
+      "after"
+    ],
+    "columns": {
+      "pair": "station",
+      "arm": "visit",
+      "value": "reading",
+      "unit": "unit"
+    },
+    "where": {
+      "season": "autumn"
+    }
+  }
+}

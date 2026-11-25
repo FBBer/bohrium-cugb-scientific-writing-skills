@@ -1,0 +1,136 @@
+{
+  "title": "两种仪器共同观测到什么？",
+  "nodes": [
+    {
+      "id": "g",
+      "name": "optical gauge",
+      "type": "instrument",
+      "aliases": [
+        "OG"
+      ]
+    },
+    {
+      "id": "c",
+      "name": "camera",
+      "type": "instrument",
+      "aliases": [
+        "CM"
+      ]
+    },
+    {
+      "id": "t",
+      "name": "plate tilt",
+      "type": "observable",
+      "aliases": []
+    },
+    {
+      "id": "d",
+      "name": "lens drift",
+      "type": "observable",
+      "aliases": []
+    },
+    {
+      "id": "b",
+      "name": "frame bow",
+      "type": "observable",
+      "aliases": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "g",
+      "to": "t",
+      "predicate": "detects",
+      "scope": "shade",
+      "polarity": "positive",
+      "surface": "detected",
+      "evidence": {
+        "source": "optics.md",
+        "loc": "L1",
+        "quote": "In shade, the optical gauge detected plate tilt."
+      }
+    },
+    {
+      "id": "e2",
+      "from": "g",
+      "to": "d",
+      "predicate": "detects",
+      "scope": "shade",
+      "polarity": "positive",
+      "surface": "detected",
+      "evidence": {
+        "source": "optics.md",
+        "loc": "L2",
+        "quote": "In shade, the optical gauge detected lens drift."
+      }
+    },
+    {
+      "id": "e3",
+      "from": "g",
+      "to": "b",
+      "predicate": "detects",
+      "scope": "sun",
+      "polarity": "positive",
+      "surface": "detected",
+      "evidence": {
+        "source": "optics.md",
+        "loc": "L3",
+        "quote": "In sun, the optical gauge detected frame bow."
+      }
+    },
+    {
+      "id": "e4",
+      "from": "c",
+      "to": "t",
+      "predicate": "detects",
+      "scope": "shade",
+      "polarity": "positive",
+      "surface": "detected",
+      "evidence": {
+        "source": "camera.md",
+        "loc": "L1",
+        "quote": "In shade, the camera detected plate tilt."
+      }
+    },
+    {
+      "id": "e5",
+      "from": "c",
+      "to": "d",
+      "predicate": "detects",
+      "scope": "shade",
+      "polarity": "positive",
+      "surface": "detected",
+      "evidence": {
+        "source": "camera.md",
+        "loc": "L2",
+        "quote": "In shade, the camera detected lens drift."
+      }
+    },
+    {
+      "id": "e6",
+      "from": "c",
+      "to": "d",
+      "predicate": "detects",
+      "scope": "shade",
+      "polarity": "negative",
+      "surface": "did not detect",
+      "evidence": {
+        "source": "repeat.md",
+        "loc": "L1",
+        "quote": "In shade, the camera did not detect lens drift."
+      }
+    }
+  ],
+  "questions": [
+    {
+      "question": "遮阴条件下，光学量规与相机都观测到了什么？",
+      "subjects": [
+        "OG",
+        "camera"
+      ],
+      "predicate": "detects",
+      "scope": "shade"
+    }
+  ]
+}

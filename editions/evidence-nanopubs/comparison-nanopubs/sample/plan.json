@@ -1,0 +1,36 @@
+{
+  "title": "两台位移计在干板上的观测",
+  "comparisons": [
+    {
+      "version": "bench report, revision 1",
+      "scope": "dry slab",
+      "scope_evidence": {
+        "source": "bench.md",
+        "loc": "L1",
+        "quote": "Bench A and Bench B used the same dry slab."
+      },
+      "unit": "mm",
+      "reference": {
+        "label": "Bench A",
+        "value": "0.8",
+        "unit": "cm",
+        "evidence": {
+          "source": "bench.md",
+          "loc": "L2",
+          "quote": "On the dry slab, Bench A recorded 0.8 cm of travel."
+        }
+      },
+      "comparison": {
+        "label": "Bench B",
+        "value": "6",
+        "unit": "mm",
+        "evidence": {
+          "source": "bench.md",
+          "loc": "L3",
+          "quote": "On the dry slab, Bench B recorded 6 mm of travel."
+        }
+      },
+      "expected_direction": "lower"
+    }
+  ]
+}
