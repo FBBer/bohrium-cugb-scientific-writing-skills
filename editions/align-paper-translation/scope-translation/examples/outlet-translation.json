@@ -1,0 +1,10 @@
+[
+  {
+    "id": "outlets",
+    "target": "南侧出口测得 9 mV，北口测得 3 mV [2]。"
+  },
+  {
+    "id": "parallel",
+    "target": "南口和北口分别测得 7 mV 和 4 mV。"
+  }
+]

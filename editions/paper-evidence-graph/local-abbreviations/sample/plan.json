@@ -1,0 +1,83 @@
+{
+  "title": "同一缩写在两份仪器报告中的含义",
+  "nodes": [
+    {
+      "id": "station",
+      "label": "monitoring station",
+      "type": "instrument"
+    },
+    {
+      "id": "sensor",
+      "label": "mirror sensor",
+      "type": "instrument"
+    },
+    {
+      "id": "level",
+      "label": "water level",
+      "type": "quantity"
+    },
+    {
+      "id": "tilt",
+      "label": "plate tilt",
+      "type": "quantity"
+    }
+  ],
+  "definitions": [
+    {
+      "short": "MS",
+      "node": "station",
+      "evidence": {
+        "source": "inlet.md",
+        "loc": "L1",
+        "quote": "A monitoring station (MS) was installed at the inlet."
+      }
+    },
+    {
+      "short": "MS",
+      "node": "sensor",
+      "evidence": {
+        "source": "mirror.md",
+        "loc": "L1",
+        "quote": "A mirror sensor (MS) was mounted over the housing."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "station-level",
+      "from": "MS",
+      "to": "water level",
+      "predicate": "records",
+      "surface": "recorded",
+      "polarity": "positive",
+      "scope": "April",
+      "evidence": {
+        "source": "inlet.md",
+        "loc": "L2",
+        "quote": "MS recorded water level during April."
+      }
+    },
+    {
+      "id": "sensor-tilt",
+      "from": "MS",
+      "to": "plate tilt",
+      "predicate": "records",
+      "surface": "recorded",
+      "polarity": "positive",
+      "scope": "April",
+      "evidence": {
+        "source": "mirror.md",
+        "loc": "L2",
+        "quote": "MS recorded plate tilt during April."
+      }
+    }
+  ],
+  "questions": [
+    {
+      "text": "四月，入水口的监测站记录什么？",
+      "subject": "station",
+      "predicate": "records",
+      "scope": "April"
+    }
+  ]
+}

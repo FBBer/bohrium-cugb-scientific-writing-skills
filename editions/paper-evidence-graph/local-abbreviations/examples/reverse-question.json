@@ -1,0 +1,12 @@
+{
+  "question": "Which method was used for the glare test?",
+  "from": "glare test",
+  "scope_policy": "same",
+  "steps": [
+    {
+      "predicate": "used_for",
+      "direction": "in",
+      "target_type": "method"
+    }
+  ]
+}

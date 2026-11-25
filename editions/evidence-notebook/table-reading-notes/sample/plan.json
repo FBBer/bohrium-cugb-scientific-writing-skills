@@ -1,0 +1,52 @@
+{
+  "title": "支座位移与读数界限",
+  "sections": [
+    {
+      "heading": "支座观测",
+      "notes": [
+        {
+          "note": "报告按支座列出位移；东支座只给出上限。",
+          "evidence": {
+            "source": "report.md",
+            "loc": "L1",
+            "quote": "The displacement results for each support are reported in Table 2."
+          },
+          "cells": [
+            {
+              "table": "table2.csv",
+              "column": "travel",
+              "unit_column": "unit",
+              "where": {
+                "support": "North"
+              }
+            },
+            {
+              "table": "table2.csv",
+              "column": "travel",
+              "unit_column": "unit",
+              "where": {
+                "support": "East"
+              }
+            },
+            {
+              "table": "table2.csv",
+              "column": "travel",
+              "unit_column": "unit",
+              "where": {
+                "support": "South"
+              }
+            },
+            {
+              "table": "table2.csv",
+              "column": "travel",
+              "unit_column": "unit",
+              "where": {
+                "support": "West"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
