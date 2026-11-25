@@ -1,0 +1,20 @@
+{
+  "claims": [
+    {
+      "id": "exact",
+      "subject": "north gauge",
+      "predicate": "has offset",
+      "object": "offset",
+      "scope": "evening survey",
+      "statement": "The offset was 0.7 cm.",
+      "polarity": "positive",
+      "evidence_type": "direct",
+      "evidence": [
+        {
+          "id": "S1",
+          "quote": "During the evening survey at the north gauge, the offset was 0.7 cm."
+        }
+      ]
+    }
+  ]
+}

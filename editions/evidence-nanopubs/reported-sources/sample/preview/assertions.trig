@@ -1,0 +1,11 @@
+@prefix np: <http://www.nanopub.org/nschema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix ex: <urn:ground:> .
+<urn:np:78987dc5eac48011fc5023#head> { <urn:np:78987dc5eac48011fc5023> a np:Nanopublication ; np:hasAssertion <urn:np:78987dc5eac48011fc5023#assertion> ; np:hasProvenance <urn:np:78987dc5eac48011fc5023#provenance> ; np:hasPublicationInfo <urn:np:78987dc5eac48011fc5023#pubinfo> . }
+<urn:np:78987dc5eac48011fc5023#assertion> { <urn:source:report.txt> ex:observes "The lid moved 3 mm." . }
+<urn:np:78987dc5eac48011fc5023#provenance> { <urn:np:78987dc5eac48011fc5023#assertion> prov:wasDerivedFrom <urn:source:report.txt%23L1> ; ex:attributedWork <urn:source:report.txt> . }
+<urn:np:78987dc5eac48011fc5023#pubinfo> { <urn:np:78987dc5eac48011fc5023> prov:wasAttributedTo <urn:agent:GPT-6.2Astra> . }
+<urn:np:97e69f0e21ef3068c7641c#head> { <urn:np:97e69f0e21ef3068c7641c> a np:Nanopublication ; np:hasAssertion <urn:np:97e69f0e21ef3068c7641c#assertion> ; np:hasProvenance <urn:np:97e69f0e21ef3068c7641c#provenance> ; np:hasPublicationInfo <urn:np:97e69f0e21ef3068c7641c#pubinfo> . }
+<urn:np:97e69f0e21ef3068c7641c#assertion> { <urn:source:report.txt> ex:reports "Lin (2021) reported a 2 mm displacement." . }
+<urn:np:97e69f0e21ef3068c7641c#provenance> { <urn:np:97e69f0e21ef3068c7641c#assertion> prov:wasDerivedFrom <urn:source:report.txt%23L2> ; ex:attributedWork <urn:source:Lin%20%282021%29> . }
+<urn:np:97e69f0e21ef3068c7641c#pubinfo> { <urn:np:97e69f0e21ef3068c7641c> prov:wasAttributedTo <urn:agent:GPT-6.2Astra> . }

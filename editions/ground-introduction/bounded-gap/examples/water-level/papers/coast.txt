@@ -1,0 +1,3 @@
+The shade level was associated with surface cooling.
+Only summer observations were collected at the north station.
+The sensor recorded 4 cm at the north station.

@@ -1,0 +1,19 @@
+{
+  "by_split": {
+    "test": {
+      "rows": 2,
+      "groups": 2
+    },
+    "training": {
+      "rows": 2,
+      "groups": 2
+    }
+  },
+  "groups_in_multiple_splits": {
+    "plate-A": [
+      "test",
+      "training"
+    ]
+  },
+  "repeated_ids_with_source_rows": {}
+}

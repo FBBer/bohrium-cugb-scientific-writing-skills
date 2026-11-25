@@ -1,0 +1,30 @@
+{
+  "files": [
+    "main.tex",
+    "result.tex"
+  ],
+  "labels": {
+    "eq:closure": [
+      {
+        "file": "result.tex",
+        "line": 1
+      }
+    ]
+  },
+  "references": [
+    {
+      "key": "eq:closure",
+      "kind": "eqref",
+      "file": "main.tex",
+      "line": 4,
+      "status": "resolved",
+      "locations": [
+        {
+          "file": "result.tex",
+          "line": 1
+        }
+      ]
+    }
+  ],
+  "duplicates": {}
+}

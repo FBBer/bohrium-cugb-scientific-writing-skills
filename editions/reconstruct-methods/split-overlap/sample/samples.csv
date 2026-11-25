@@ -1,0 +1,5 @@
+sample,group,split
+A1,plate-A,training
+A2,plate-A,test
+B1,plate-B,training
+C1,plate-C,test

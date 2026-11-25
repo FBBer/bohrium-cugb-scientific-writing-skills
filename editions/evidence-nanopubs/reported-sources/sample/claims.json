@@ -1,0 +1,15 @@
+[
+  {
+    "file": "report.txt",
+    "line": 1,
+    "quote": "The lid moved 3 mm.",
+    "kind": "measured"
+  },
+  {
+    "file": "report.txt",
+    "line": 2,
+    "quote": "Lin (2021) reported a 2 mm displacement.",
+    "kind": "reported",
+    "cited": "Lin (2021)"
+  }
+]

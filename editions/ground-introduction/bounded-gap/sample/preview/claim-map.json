@@ -1,0 +1,60 @@
+{
+  "included": [
+    {
+      "sentence": "Bench calibration depended on the test setting",
+      "role": "background",
+      "sources": [
+        {
+          "file": "papers.txt",
+          "line": 1,
+          "quote": "calibrated indoors"
+        }
+      ]
+    },
+    {
+      "sentence": "Both benches were calibrated indoors",
+      "role": "comparison",
+      "sources": [
+        {
+          "file": "papers.txt",
+          "line": 1,
+          "quote": "east bench"
+        },
+        {
+          "file": "papers.txt",
+          "line": 2,
+          "quote": "west bench"
+        }
+      ]
+    },
+    {
+      "sentence": "Outdoor performance remains open within these two bench trials",
+      "role": "gap",
+      "sources": [
+        {
+          "file": "papers.txt",
+          "line": 1,
+          "quote": "calibrated indoors"
+        },
+        {
+          "file": "papers.txt",
+          "line": 2,
+          "quote": "calibrated indoors"
+        }
+      ]
+    },
+    {
+      "sentence": "We repeated the calibration outdoors",
+      "role": "contribution",
+      "sources": [
+        {
+          "file": "our.txt",
+          "line": 1,
+          "quote": "repeated calibration outdoors",
+          "type": "own"
+        }
+      ]
+    }
+  ],
+  "withheld": []
+}

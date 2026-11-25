@@ -1,0 +1,18 @@
+[
+  {
+    "nanopublication": "urn:np:78987dc5eac48011fc5023",
+    "evidence_type": "measured",
+    "source": "report.txt",
+    "line": 1,
+    "attributed_work": "report.txt",
+    "quotation": "The lid moved 3 mm."
+  },
+  {
+    "nanopublication": "urn:np:97e69f0e21ef3068c7641c",
+    "evidence_type": "reported",
+    "source": "report.txt",
+    "line": 2,
+    "attributed_work": "Lin (2021)",
+    "quotation": "Lin (2021) reported a 2 mm displacement."
+  }
+]

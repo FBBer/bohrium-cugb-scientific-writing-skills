@@ -1,0 +1,58 @@
+[
+  {
+    "role": "background",
+    "text": "Bench calibration depended on the test setting",
+    "evidence": [
+      {
+        "file": "papers.txt",
+        "line": 1,
+        "quote": "calibrated indoors"
+      }
+    ]
+  },
+  {
+    "role": "comparison",
+    "text": "Both benches were calibrated indoors",
+    "evidence": [
+      {
+        "file": "papers.txt",
+        "line": 1,
+        "quote": "east bench"
+      },
+      {
+        "file": "papers.txt",
+        "line": 2,
+        "quote": "west bench"
+      }
+    ]
+  },
+  {
+    "role": "gap",
+    "scope": "these two bench trials",
+    "text": "Outdoor performance remains open within these two bench trials",
+    "evidence": [
+      {
+        "file": "papers.txt",
+        "line": 1,
+        "quote": "calibrated indoors"
+      },
+      {
+        "file": "papers.txt",
+        "line": 2,
+        "quote": "calibrated indoors"
+      }
+    ]
+  },
+  {
+    "role": "contribution",
+    "text": "We repeated the calibration outdoors",
+    "evidence": [
+      {
+        "file": "our.txt",
+        "line": 1,
+        "quote": "repeated calibration outdoors",
+        "type": "own"
+      }
+    ]
+  }
+]

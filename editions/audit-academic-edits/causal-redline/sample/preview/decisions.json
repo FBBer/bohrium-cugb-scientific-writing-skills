@@ -1,0 +1,19 @@
+[
+  {
+    "line": 1,
+    "original": "Wet glass may be associated with slip.",
+    "proposed": "Wet glass causes slip.",
+    "retained": "Wet glass may be associated with slip.",
+    "review": [
+      "causal_strength",
+      "uncertainty"
+    ]
+  },
+  {
+    "line": 2,
+    "original": "A total of 14 plates were measured.",
+    "proposed": "We measured 14 plates.",
+    "retained": "We measured 14 plates.",
+    "review": []
+  }
+]
