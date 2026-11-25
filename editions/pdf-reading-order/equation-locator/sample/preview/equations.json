@@ -1,0 +1,50 @@
+{
+  "file": "laboratory.pdf",
+  "author": "GPT-6.2Astra",
+  "displays": {
+    "2": [
+      {
+        "page": 2,
+        "box": [
+          107.0,
+          143.1750030517578,
+          510.4419860839844,
+          168.28900146484375
+        ],
+        "image": "p2-eq-2-1.png",
+        "text": "u = a + b t"
+      }
+    ]
+  },
+  "references": [
+    {
+      "key": "2",
+      "page": 1,
+      "quote": "The displacement follows Eq. (2).",
+      "box": [
+        58.0,
+        98.17500305175781,
+        220.6129608154297,
+        113.28900146484375
+      ],
+      "status": "located",
+      "targets": [
+        "p2-eq-2-1.png"
+      ]
+    },
+    {
+      "key": "9",
+      "page": 1,
+      "quote": "Compare Eq. (9) for the missing reference.",
+      "box": [
+        58.0,
+        128.1750030517578,
+        266.4609375,
+        143.28900146484375
+      ],
+      "status": "missing",
+      "targets": []
+    }
+  ],
+  "notes": []
+}

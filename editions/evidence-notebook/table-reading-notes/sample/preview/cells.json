@@ -1,0 +1,70 @@
+{
+  "author": "GPT-6.2Astra",
+  "sections": [
+    {
+      "heading": "支座观测",
+      "notes": [
+        {
+          "note": "报告按支座列出位移；东支座只给出上限。",
+          "evidence": {
+            "source": "report.md",
+            "loc": "L1",
+            "quote": "The displacement results for each support are reported in Table 2.",
+            "ref": "e-cb77ea1fddb1b602"
+          },
+          "cells": [
+            {
+              "type": "measured",
+              "value": "0",
+              "raw": "0",
+              "table": "table2.csv",
+              "row": 2,
+              "column": "travel",
+              "row_key": {
+                "support": "North"
+              },
+              "unit": "mm"
+            },
+            {
+              "type": "bound",
+              "comparison": "<",
+              "limit": "0.2",
+              "raw": "<0.2",
+              "table": "table2.csv",
+              "row": 3,
+              "column": "travel",
+              "row_key": {
+                "support": "East"
+              },
+              "unit": "mm"
+            },
+            {
+              "type": "with_uncertainty",
+              "value": "1.4",
+              "uncertainty": "0.1",
+              "raw": "1.4 ± 0.1",
+              "table": "table2.csv",
+              "row": 4,
+              "column": "travel",
+              "row_key": {
+                "support": "South"
+              },
+              "unit": "mm"
+            },
+            {
+              "type": "blank",
+              "raw": "",
+              "table": "table2.csv",
+              "row": 5,
+              "column": "travel",
+              "row_key": {
+                "support": "West"
+              },
+              "unit": "mm"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

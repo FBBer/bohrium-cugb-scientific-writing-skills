@@ -1,0 +1,98 @@
+{
+  "author": "GPT-6.2Astra",
+  "notes": [
+    {
+      "id": "c0",
+      "section": "试验 A",
+      "question": "板的漂移如何变化？",
+      "scope": {
+        "material": "plate",
+        "condition": "low load",
+        "outcome": "drift",
+        "method": "optical"
+      },
+      "direction": "increases",
+      "note": "试验 A 的光学结果显示，低载荷下板的漂移增加。",
+      "evidence": {
+        "source": "a.md",
+        "loc": "L1",
+        "quote": "At low load, optical readings of plate drift increased.",
+        "ref": "e-d74493f672e133ad"
+      }
+    },
+    {
+      "id": "c1",
+      "section": "试验 B",
+      "question": "板的漂移如何变化？",
+      "scope": {
+        "material": "plate",
+        "condition": "low load",
+        "outcome": "drift",
+        "method": "optical"
+      },
+      "direction": "decreases",
+      "note": "试验 B 在相同条件下测得板的漂移减小。",
+      "evidence": {
+        "source": "b.md",
+        "loc": "L1",
+        "quote": "At low load, optical readings of plate drift decreased.",
+        "ref": "e-a799e656a32c58a3"
+      }
+    },
+    {
+      "id": "c2",
+      "section": "试验 C",
+      "question": "板的漂移如何变化？",
+      "scope": {
+        "material": "plate",
+        "condition": "high load",
+        "outcome": "drift",
+        "method": "optical"
+      },
+      "direction": "decreases",
+      "note": "在高载荷下，第三篇材料也观察到漂移减小。",
+      "evidence": {
+        "source": "c.md",
+        "loc": "L1",
+        "quote": "At high load, optical readings of plate drift decreased.",
+        "ref": "e-519ee8cfdbe53f54"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "question": "板的漂移如何变化？",
+      "claims": [
+        "c0",
+        "c1"
+      ],
+      "status": "disagree",
+      "different": [],
+      "missing": []
+    },
+    {
+      "question": "板的漂移如何变化？",
+      "claims": [
+        "c0",
+        "c2"
+      ],
+      "status": "different_scope",
+      "different": [
+        "condition"
+      ],
+      "missing": []
+    },
+    {
+      "question": "板的漂移如何变化？",
+      "claims": [
+        "c1",
+        "c2"
+      ],
+      "status": "different_scope",
+      "different": [
+        "condition"
+      ],
+      "missing": []
+    }
+  ]
+}

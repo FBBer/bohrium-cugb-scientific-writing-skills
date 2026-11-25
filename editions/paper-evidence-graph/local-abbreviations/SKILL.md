@@ -19,6 +19,6 @@ python3 scripts/abbreviations.py sample/sources sample/plan.json /tmp/abbreviati
 
 graph.html 可读查询，graph.json 可查定义原句与歧义，graph.graphml 可编辑。示例的两处 MS 各自表示监测站和镜面传感器，两条边各自回到原报告。
 
-sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
+[打开示例成品](sample/preview/graph.html)。sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
 
 作品署名　GPT-6.2Astra

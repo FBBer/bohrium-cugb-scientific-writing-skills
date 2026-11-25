@@ -1,0 +1,54 @@
+{
+  "author": "GPT-6.2Astra",
+  "segments": [
+    {
+      "id": "p1",
+      "section": "试验与结果",
+      "source": {
+        "source": "report.md",
+        "loc": "L1",
+        "quote": "Not all gauges returned to zero.",
+        "ref": "e-d9d8a9672d36656a"
+      },
+      "translation": "并非所有量规都回到了零点。",
+      "review": []
+    },
+    {
+      "id": "p2",
+      "section": "试验与结果",
+      "source": {
+        "source": "report.md",
+        "loc": "L2",
+        "quote": "The test is valid only if the lamp is off.",
+        "ref": "e-4fced124932bb868"
+      },
+      "translation": "只有关灯，试验才有效。",
+      "review": []
+    },
+    {
+      "id": "p3",
+      "section": "试验与结果",
+      "source": {
+        "source": "report.md",
+        "loc": "L3",
+        "quote": "No significant difference was reported between the two plates.",
+        "ref": "e-3e513ea5e40f31dc"
+      },
+      "translation": "报告称两块板之间的差异不显著。",
+      "review": []
+    },
+    {
+      "id": "p4",
+      "section": "试验与结果",
+      "source": {
+        "source": "report.md",
+        "loc": "L4",
+        "quote": "The seal may move at most 2 mm.",
+        "ref": "e-590cdd7e6f22e2f8"
+      },
+      "translation": "密封件可能移动，位移不超过 2 mm。",
+      "review": []
+    }
+  ],
+  "review": []
+}

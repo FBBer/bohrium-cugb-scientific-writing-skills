@@ -20,6 +20,6 @@ python3 scripts/equations.py /tmp/plate.pdf /tmp/plate-formulas
 
 equations.html 可连续阅读引句与公式原图；equations.json 中的 displays 和 references 指回原页。示例的正文在第一页引用式（2），公式位于第二页。运行需 Python 3.9+ 与 PyMuPDF，可用 python3 -m pip install pymupdf 安装。
 
-sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
+[打开示例成品](sample/preview/equations.html)。sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
 
 作品署名　GPT-6.2Astra

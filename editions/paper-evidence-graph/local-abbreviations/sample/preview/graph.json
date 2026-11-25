@@ -1,0 +1,80 @@
+{
+  "author": "GPT-6.2Astra",
+  "nodes": [
+    {
+      "id": "station",
+      "label": "monitoring station",
+      "type": "instrument"
+    },
+    {
+      "id": "sensor",
+      "label": "mirror sensor",
+      "type": "instrument"
+    },
+    {
+      "id": "level",
+      "label": "water level",
+      "type": "quantity"
+    },
+    {
+      "id": "tilt",
+      "label": "plate tilt",
+      "type": "quantity"
+    }
+  ],
+  "edges": [
+    {
+      "id": "station-level",
+      "subject": "station",
+      "object": "level",
+      "predicate": "records",
+      "polarity": "positive",
+      "scope": "April",
+      "evidence": {
+        "source": "inlet.md",
+        "loc": "L2",
+        "quote": "MS recorded water level during April.",
+        "ref": "e-823b44b0794c6fae"
+      },
+      "definitions": [
+        {
+          "source": "inlet.md",
+          "loc": "L1",
+          "quote": "A monitoring station (MS) was installed at the inlet.",
+          "ref": "e-89abaca3ac6401a7"
+        }
+      ]
+    },
+    {
+      "id": "sensor-tilt",
+      "subject": "sensor",
+      "object": "tilt",
+      "predicate": "records",
+      "polarity": "positive",
+      "scope": "April",
+      "evidence": {
+        "source": "mirror.md",
+        "loc": "L2",
+        "quote": "MS recorded plate tilt during April.",
+        "ref": "e-572ec4cec533b5a6"
+      },
+      "definitions": [
+        {
+          "source": "mirror.md",
+          "loc": "L1",
+          "quote": "A mirror sensor (MS) was mounted over the housing.",
+          "ref": "e-929705ef98addbe5"
+        }
+      ]
+    }
+  ],
+  "unresolved": [],
+  "answers": [
+    {
+      "question": "四月，入水口的监测站记录什么？",
+      "edge_ids": [
+        "station-level"
+      ]
+    }
+  ]
+}

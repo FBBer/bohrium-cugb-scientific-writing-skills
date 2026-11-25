@@ -19,6 +19,6 @@ python3 scripts/logic_translation.py sample/sources sample/plan.json /tmp/qualif
 
 网页与纯文本交付全篇；translation.json 保存逐段定位，review 列出需要重读的句子。示例把‘并非所有’和‘均不’分清，把不可区分的实验结果保留为统计表述。
 
-sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
+[打开示例成品](sample/preview/translation.html)。sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
 
 作品署名　GPT-6.2Astra

@@ -19,6 +19,6 @@ python3 scripts/disputes.py sample/sources sample/plan.json /tmp/disputed-findin
 
 notebook.html 逐项列出两篇材料和条件，notes.md 可继续编辑，notebook.json 含可比较的条件与证据。三篇示例中只有两篇低载荷研究构成同条件分歧。
 
-sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
+[打开示例成品](sample/preview/notebook.html)。sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
 
 作品署名　GPT-6.2Astra

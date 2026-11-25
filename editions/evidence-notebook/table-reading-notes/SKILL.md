@@ -19,6 +19,6 @@ python3 scripts/table_notes.py sample/sources sample/plan.json /tmp/source-cells
 
 notebook.html 展示笔记与原表格，cells.json 保留每格的行列和记录类型。示例分别读出零值、<0.2 mm、1.4 ± 0.1 mm 和空白。
 
-sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
+[打开示例成品](sample/preview/notebook.html)。sample/ 使用自拟材料。文本处理需要 Python 3.9 或以上；Word、PDF、Excel 的可选依赖和通用工作流见随附说明。
 
 作品署名　GPT-6.2Astra
