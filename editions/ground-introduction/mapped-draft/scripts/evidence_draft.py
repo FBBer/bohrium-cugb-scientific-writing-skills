@@ -6,12 +6,13 @@ from casework import prepare, read, write, atomic_text
 from comparisons import compare_evidence
 from gaps import derive_gap
 from fidelity import fidelity
+from reference_labels import reference_labels
 
 def source_index(folder, work):
     idx = prepare(folder, work)
     # Source material can also be embedded in case.json. Directions and file metadata are not evidence.
     return [r for r in idx["sources"] if r["source"] != "case.json" or
-            re.search(r"(?:^|/)(?:materials?|papers?|literature|data|study|evidence|records|sources?|observations|experiment)(?:/|$)",r["location"],re.I)]
+            re.search(r"(?:^|/)(?:materials?|papers?|literature|bibliography|references|data|study|studies|evidence|records|sources?|observations|experiments?|current_study|prior_studies|source_papers|research_materials|fact_sheet|facts)(?:/|$)",r["location"],re.I)]
 
 def resolve(ref, rows):
     quote=ref["quote"]
@@ -32,6 +33,10 @@ def resolve(ref, rows):
 
 def check_claim(role, claim, refs, plan):
     issues=[]
+    if role not in {"background","related","comparison","gap","contribution"}:
+        issues.append("unknown paragraph role")
+    if role=="comparison" and len({r["file"] for r in refs})>1 and not claim.get("comparison"):
+        issues.append("identify the comparison dimensions for each study")
     if not refs:
         issues.append("missing source")
     if not claim.get("text","").strip():
@@ -40,7 +45,7 @@ def check_claim(role, claim, refs, plan):
 
 def render(plan, rows, out):
     out.mkdir(parents=True,exist_ok=True)
-    works=plan.get("works",{})
+    works,bibliography_review=reference_labels(plan.get("works",{}),rows)
     citations, included, review, paragraphs, comparisons = {}, [], [], [], []
     for paragraph in plan["paragraphs"]:
         role=paragraph["role"]
@@ -75,7 +80,7 @@ def render(plan, rows, out):
         heading="参考文献" if plan.get("language")=="zh" else "References"
         manuscript+="\n\n## "+heading+"\n\n"+"\n\n".join(
             f"[{i}] {works.get(f,f)}" for f,i in citations.items())
-    report={"claims":included,"review":review,"files":dict(citations),"language":plan.get("language","")}
+    report={"claims":included,"review":review,"files":dict(citations),"bibliography":{f:works.get(f,f) for f in citations},"bibliography_review":bibliography_review,"language":plan.get("language","")}
     atomic_text(out/"introduction.md",manuscript.strip()+"\n")
     write(out/"claims.json",report)
     write(out/"comparisons.json",comparisons)

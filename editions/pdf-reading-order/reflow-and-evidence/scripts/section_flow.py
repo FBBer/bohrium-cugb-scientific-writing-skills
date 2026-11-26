@@ -21,7 +21,14 @@ def section_breaks(lines, width, tables):
         clearance = body_size*.85
         if any(r["bbox"][3] > y0-clearance and r["bbox"][1] < y1+clearance for r in right):
             continue
-        if all(sum(r["bbox"][3] <= y0 for r in col) >= 2 and
-               sum(r["bbox"][1] >= y1 for r in col) >= 2 for col in (left,right)):
+        before=[[r for r in col if r["bbox"][3]<=y0] for col in (left,right)]
+        after=[[r for r in col if r["bbox"][1]>=y1] for col in (left,right)]
+        if min(map(len,before))<2:
+            continue
+        ends=[max(r["bbox"][3] for r in band) for band in before]
+        # A balanced two-column section may be followed by a short, single-column final section.
+        balanced_end=(abs(ends[0]-ends[1])<=body_size and y0-max(ends)>=1.6*body_size)
+        short_last=bool(after[0]) and not after[1] and balanced_end
+        if min(map(len,after))>=2 or short_last:
             cuts.append(row)
     return sorted(cuts,key=lambda r:r["bbox"][1])
