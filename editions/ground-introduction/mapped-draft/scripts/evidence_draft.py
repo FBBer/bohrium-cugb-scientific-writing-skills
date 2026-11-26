@@ -3,6 +3,7 @@ from pathlib import Path
 from collections import defaultdict
 import re
 from casework import prepare, read, write, atomic_text
+from comparisons import compare_evidence
 
 def source_index(folder, work):
     idx = prepare(folder, work)
@@ -38,7 +39,7 @@ def check_claim(role, claim, refs, plan):
 def render(plan, rows, out):
     out.mkdir(parents=True,exist_ok=True)
     works=plan.get("works",{})
-    citations, included, review, paragraphs = {}, [], [], []
+    citations, included, review, paragraphs, comparisons = {}, [], [], [], []
     for paragraph in plan["paragraphs"]:
         role=paragraph["role"]
         phrasing=[]
@@ -46,11 +47,14 @@ def render(plan, rows, out):
             try:
                 refs=[resolve(a,rows) for a in claim["evidence"]]
                 problems=check_claim(role,claim,refs,plan)
+                comparison=compare_evidence(claim["comparison"],refs) if "comparison" in claim else None
             except (ValueError,KeyError,TypeError) as e:
                 refs,problems=[],[str(e)]
             if problems:
                 review.append({"role":role,"text":claim.get("text",""),"issues":problems})
                 continue
+            if comparison:
+                comparisons.append({"sentence":claim["text"],**comparison})
             keys=[]
             for ref in refs:
                 f=ref["file"]
@@ -71,4 +75,5 @@ def render(plan, rows, out):
     report={"claims":included,"review":review,"files":dict(citations),"language":plan.get("language","")}
     atomic_text(out/"introduction.md",manuscript.strip()+"\n")
     write(out/"claims.json",report)
+    write(out/"comparisons.json",comparisons)
     return report

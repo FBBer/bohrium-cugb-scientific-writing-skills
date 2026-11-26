@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 from casework import write, atomic_text
 from atlas import file_digest
 from section_flow import section_breaks
+from passages import cross_page_pairs
 from open_tables import borderless, table_tsv
 
 
@@ -557,6 +558,7 @@ def run(path,dest,language):
                 text.append("["+a["id"]+"] "+a.get("display_text",a["text"]))
         bookmarks=[{"level":row[0],"text":row[1],"page":row[2]} for row in doc.get_toc() if row[2]>0] if doc else []
         result["structure"]=structure(result["pages"],bookmarks)
+        result["structure"]["cross_page_words"]=cross_page_pairs(result["pages"])
         if result["issues"]: result["status"]="partial"
         write(dest,result)
         atomic_text(dest.with_suffix(".tables.tsv"), table_tsv(result["pages"]))
