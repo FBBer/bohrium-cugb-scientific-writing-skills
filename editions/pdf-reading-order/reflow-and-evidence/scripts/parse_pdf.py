@@ -170,20 +170,28 @@ def ocr(path,page_num,work,width,height,doc,language,region=None):
 SUPERSCRIPT_DIGITS = str.maketrans("0123456789+-−", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻")
 
 def readable_exponents(spans):
-    """Use the PDF's own raised-digit flag and baseline; leave ambiguous typography intact."""
+    """Represent a smaller raised or lowered glyph beside its base; retain the raw source spans."""
     normal = [s for s in spans if s["text"].strip() and not s["flags"] & 1]
     if not normal:
         return "".join(s["text"] for s in spans)
     largest = max(s["size"] for s in normal)
     baseline = statistics.median(s["baseline"] for s in normal if s["size"] >= largest*.9)
-    fragments = []
-    for s in spans:
-        text = s["text"]
-        if (s["flags"] & 1 and s["size"] < largest*.9 and baseline-s["baseline"] > largest*.15
-                and re.fullmatch(r"\s*[+\-−]?\d+\s*", text)):
-            text = text.translate(SUPERSCRIPT_DIGITS)
-        fragments.append(text)
-    return "".join(fragments)
+    super_map = str.maketrans("0123456789+-−=()in","⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻⁼⁽⁾ⁱⁿ")
+    sub_map = str.maketrans("0123456789+-−=()aeijorux","₀₁₂₃₄₅₆₇₈₉₊₋₋₌₍₎ₐₑᵢⱼₒᵣᵤₓ")
+    parts = []
+    for index, span in enumerate(spans):
+        text = span["text"]
+        if index and span["size"] <= largest*.88 and text.strip():
+            previous = spans[index-1]
+            gap = span["bbox"][0]-previous["bbox"][2]
+            delta = span["baseline"]-baseline
+            if -.24*largest <= gap <= .45*largest and not previous["text"].endswith(" "):
+                if delta >= .14*largest and re.fullmatch(r"[0-9+−=()aeijorux-]+",text):
+                    text = text.translate(sub_map)
+                elif delta <= -.14*largest and re.fullmatch(r"[0-9+−=()in-]+",text):
+                    text = text.translate(super_map)
+        parts.append(text)
+    return "".join(parts)
 
 NUMBER_IN_CELL = re.compile(r"[+\-−]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-]?\d+)?%?")
 

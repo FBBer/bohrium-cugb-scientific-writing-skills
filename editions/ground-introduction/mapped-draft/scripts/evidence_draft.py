@@ -4,6 +4,7 @@ from collections import defaultdict
 import re
 from casework import prepare, read, write, atomic_text
 from comparisons import compare_evidence
+from gaps import derive_gap
 
 def source_index(folder, work):
     idx = prepare(folder, work)
@@ -47,6 +48,7 @@ def render(plan, rows, out):
             try:
                 refs=[resolve(a,rows) for a in claim["evidence"]]
                 problems=check_claim(role,claim,refs,plan)
+                gap=derive_gap(claim,refs,plan.get("own",[])) if role=="gap" else None
                 comparison=compare_evidence(claim["comparison"],refs) if "comparison" in claim else None
             except (ValueError,KeyError,TypeError) as e:
                 refs,problems=[],[str(e)]
@@ -64,7 +66,7 @@ def render(plan, rows, out):
             label=" ["+", ".join(dict.fromkeys(keys))+"]" if keys else ""
             text=claim["text"].strip(); stop=re.search(r"([。！？.!?]+)$",text)
             phrasing.append((text[:stop.start()]+label+stop[0]) if stop else text+label)
-            included.append({"role":role,"text":text,"evidence":refs})
+            included.append({"role":role,"text":text,"evidence":refs,**({"gap":gap} if gap else {})})
         if phrasing:
             paragraphs.append(("" if plan.get("language")=="zh" else " ").join(phrasing))
     manuscript="\n\n".join(paragraphs)
