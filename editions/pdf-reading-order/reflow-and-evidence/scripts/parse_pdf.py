@@ -15,6 +15,7 @@ from casework import write, atomic_text
 from atlas import file_digest
 from section_flow import section_breaks
 from passages import cross_page_pairs
+from page_evidence import folio, omitted_header
 from open_tables import borderless, table_tsv
 
 
@@ -402,10 +403,15 @@ def continued_tables(pages, objects):
             clean = lambda cells:tuple(" ".join(str(v or "").split()).casefold() for v in cells)
             continuing = bool(CONTINUATION.search(caption["text"]))
             carry = (series is not None and continuing and page_number == series["segments"][-1]["page"]+1)
+            inherited = False
             if carry:
                 same_header = clean(header)==clean(series["header"])
-                # A changed header or a different column count can describe a different panel.
-                if not same_header or not any(clean(header)):
+                external_words = " ".join(str(x or "") for x in external.get("names",[]))
+                external_is_caption = bool(CONTINUATION.search(external_words))
+                if not same_header and (not external or external_is_caption):
+                    prior_page = by_page[series["segments"][-1]["page"]]
+                    inherited = omitted_header(series,grid,cols,table,by_page[page_number]["size"][0],prior_page["size"][0])
+                if not same_header and not inherited or not any(clean(header)):
                     series = None
                     continue
             elif continuing:
@@ -413,8 +419,8 @@ def continued_tables(pages, objects):
                 continue
             else:
                 series = {"number":obj["number"],"header":header,"segments":[],"data":[]}
-            data_start = 0 if external else 1
-            series["segments"].append({"page":page_number,"table":match["index"],"caption":caption["line"],"bbox":match["bbox"]})
+            data_start = 0 if external or inherited else 1
+            series["segments"].append({"page":page_number,"table":match["index"],"caption":caption["line"],"bbox":match["bbox"],"header_source":"previous page, matched numeric cells" if inherited else "on current page"})
             for row_number, values in enumerate(grid[data_start:],data_start+1):
                 cells = table.get("row_cells",[])
                 series["data"].append({"page":page_number,"table":match["index"],"row":row_number,"values":grab(values),
@@ -564,6 +570,10 @@ def run(path,dest,language):
                 if a.get("needs_review"):
                     result["issues"].append({"anchor":a["id"],"reason":"low-confidence OCR; check page crop"})
                 text.append("["+a["id"]+"] "+a.get("display_text",a["text"]))
+        labels = doc.get_page_labels() if doc is not None and hasattr(doc,"get_page_labels") else []
+        for page_info in result["pages"]:
+            embedded=doc[page_info["page"]-1].get_label() if labels else None
+            page_info["folio"]=folio(page_info,embedded)
         bookmarks=[{"level":row[0],"text":row[1],"page":row[2]} for row in doc.get_toc() if row[2]>0] if doc else []
         result["structure"]=structure(result["pages"],bookmarks)
         result["structure"]["cross_page_words"]=cross_page_pairs(result["pages"])

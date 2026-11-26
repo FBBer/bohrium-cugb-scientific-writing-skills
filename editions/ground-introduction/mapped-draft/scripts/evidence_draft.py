@@ -5,6 +5,7 @@ import re
 from casework import prepare, read, write, atomic_text
 from comparisons import compare_evidence
 from gaps import derive_gap
+from fidelity import fidelity
 
 def source_index(folder, work):
     idx = prepare(folder, work)
@@ -35,7 +36,7 @@ def check_claim(role, claim, refs, plan):
         issues.append("missing source")
     if not claim.get("text","").strip():
         issues.append("missing text")
-    return issues
+    return issues + fidelity(role,claim,refs,plan.get("own",[]))
 
 def render(plan, rows, out):
     out.mkdir(parents=True,exist_ok=True)
